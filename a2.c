@@ -11,6 +11,7 @@
 #include <math.h>
 #include <stdbool.h>
 #include <string.h>
+#include <ctype.h>
 
 // use sscanf_s as drop-in replacement for sscanf if Visual Studio compiler
 #ifdef _MSC_VER
@@ -48,6 +49,9 @@ int main(void);
 void display_help(void);
 bool process_expression(char expression[], const double * const last_answer, const double * const memory, double * const answer);
 token * tokenize(char expression[]);
+char * strip(const char * str);
+
+
 
 // begin the program!
 int main(void) {
@@ -56,24 +60,19 @@ int main(void) {
 
   bool running = true;
   char line[LINE_BUFFER];
-  char command[LINE_BUFFER];
+  char * command = NULL;
   double * memory = NULL; //malloc(sizeof(double)); // &memory_value;
   double * last_answer = NULL; // &last_value;
   double answer = 0;
   bool calc_success = true;
-  int was_command;
 
   while (running) {
 
     printf("%s", "exp>> ");
     fgets(line, LINE_BUFFER, stdin);
-#ifdef _MSC_VER
-    was_command = sscanf_s(line, "%s", command, LINE_BUFFER); // VS compiler wants a length as extra argument
-#else
-    was_command = sscanf(line, "%s", command);
-#endif
+    command = strip(line); // strip whitespace
 
-    if (was_command < 0) {
+    if (command == 0) {
       // ignore empty line
 
     } else if (strcmp(command, "help") == 0) {
@@ -179,13 +178,18 @@ bool process_expression(char expression[], const double * const last_answer, con
 
 token * tokenize(char expression[]) {
 
-  //// testing
   token * tokens = malloc(2*sizeof(token));
+
+  printf("expression: %s\n", expression);
+
+
+  //// testing
   tokens[0].type = ADD;
   tokens[0].is_operator = true;
   tokens[1].type = LITERAL;
   tokens[1].value = 10.34;
   tokens[1].is_operator = false;
+  tokens[2].is_operator = false;
   ////
 
   // TODO: loop over the expression and add discovered tokens to the arry (dynamically allocating if needed)
@@ -194,3 +198,38 @@ token * tokenize(char expression[]) {
 
 }
 
+
+// source for information on stripping whitespace here from http://stackoverflow.com/questions/122616/how-do-i-trim-leading-trailing-whitespace-in-a-standard-way
+char * strip(const char * s)
+{
+  char * out;
+
+  while(isspace(*s)) { // strip leading spaces
+    s++;
+  }
+
+  if(*s == 0)  // All spaces?
+  {
+    out = malloc(sizeof(char));
+    out[0] = '\0';
+    return out;
+  }
+
+  // Trim trailing space
+  const char *end = s + strlen(s) - 1;
+  while(end > s && isspace(*end)) {
+    end--;
+  }
+  end++;
+
+  int len = strlen(s);
+  // Set output size to minimum of trimmed string length and buffer size minus 1
+  size_t out_size = (end - s) < len-1 ? (end - s) : len-1;
+
+  // Copy trimmed string and add null terminator
+  out = malloc(out_size * sizeof(char));
+  memcpy(out, s, out_size);
+  out[out_size] = 0;
+
+  return out;
+}
