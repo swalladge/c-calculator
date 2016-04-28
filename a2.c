@@ -37,9 +37,9 @@ typedef enum {
 } token_type;
 
 // structure of a token for the expression parser
-typedef struct {
-  bool is_operator;
+typedef struct token {
   token_type type;
+  bool is_operator;
   double value;
 } token;
 
@@ -72,7 +72,7 @@ int main(void) {
     fgets(line, LINE_BUFFER, stdin);
     command = strip(line); // strip whitespace
 
-    if (command == 0) {
+    if (*command == 0) {
       // ignore empty line
 
     } else if (strcmp(command, "help") == 0) {
@@ -106,8 +106,6 @@ int main(void) {
         *memory = *last_answer;
         printf("%.6lf stored to memory\n", *memory);
       }
-      printf("memory points to %p and last_answer points to %p\n", memory, last_answer);
-
 
     } else if (strcmp(command, "reset") == 0) {
       memory = NULL;
@@ -176,11 +174,15 @@ bool process_expression(char expression[], const double * const last_answer, con
 
 }
 
-token * tokenize(char expression[]) {
+token add_token(token * tokens, token t) {
+  printf("found token: %d\n", t.type);
+}
+
+token * tokenize(char exp[]) {
 
   token * tokens = malloc(2*sizeof(token));
 
-  printf("expression: %s\n", expression);
+  printf("expression: %s\n", exp);
 
 
   //// testing
@@ -192,7 +194,56 @@ token * tokenize(char expression[]) {
   tokens[2].is_operator = false;
   ////
 
-  // TODO: loop over the expression and add discovered tokens to the arry (dynamically allocating if needed)
+  size_t i = 0;
+  size_t len = strlen(exp);
+  token previous = {LITERAL, true, 0};
+  while (i < len) {
+    printf("exp[i]: %c\n", exp[i]);
+    switch (exp[i]) {
+      case '+':;
+        if (previous.is_operator) {
+          // parse number
+        } else {
+          previous = add_token(tokens, (token) {ADD, true, 0});
+        }
+        break;
+      case '-':
+        if (previous.is_operator) {
+          // parse number (since number can begin with -)
+        } else {
+          previous = add_token(tokens, (token) {MINUS, true, 0});
+        }
+        break;
+      case '*':
+        previous = add_token(tokens, (token) {MULTIPLY, true, 0});
+        break;
+      case '/':
+        previous = add_token(tokens, (token) {DIVIDE, true, 0});
+        break;
+      case '^':
+        previous = add_token(tokens, (token) {SQR, true, 0});
+        break;
+      case '#':
+        previous = add_token(tokens, (token) {SQRT, true, 0});
+        break;
+      case '(':
+        previous = add_token(tokens, (token) {LEFT_PARENS, true, 0});
+        break;
+      case ')':
+        previous = add_token(tokens, (token) {RIGHT_PARENS, true, 0});
+        break;
+      default:
+        previous.is_operator = false;
+        if (isalpha(exp[i])) {
+          // parse memory/ans/otherkeywords
+        } else if (isdigit(exp[i]) || exp[i] == '.') { // allow begin with .?
+          // parse number
+        }
+        break;
+    }
+    ++i;
+  }
+    
 
   return tokens;
 
@@ -200,27 +251,24 @@ token * tokenize(char expression[]) {
 
 
 // source for information on stripping whitespace here from http://stackoverflow.com/questions/122616/how-do-i-trim-leading-trailing-whitespace-in-a-standard-way
-char * strip(const char * s)
-{
+char * strip(const char * s) {
   char * out;
 
   while(isspace(*s)) { // strip leading spaces
-    s++;
+    ++s;
   }
 
-  if(*s == 0)  // All spaces?
-  {
+  if(*s == 0) { // was it all spaces?
     out = malloc(sizeof(char));
     out[0] = '\0';
     return out;
   }
 
-  // Trim trailing space
   const char *end = s + strlen(s) - 1;
-  while(end > s && isspace(*end)) {
-    end--;
+  while(end > s && isspace(*end)) { // strip trailing spaces
+    --end;
   }
-  end++;
+  ++end;
 
   int len = strlen(s);
   // Set output size to minimum of trimmed string length and buffer size minus 1
