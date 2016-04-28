@@ -20,13 +20,34 @@
 // set line buffer
 #define LINE_BUFFER 128
 
-// variable to store a line of data entered by the user
+// all possible token types for expressions (supported operators, etc.)
+typedef enum {
+  LEFT_PARENS,
+  RIGHT_PARENS,
+  MULTIPLY,
+  DIVIDE,
+  ADD,
+  MINUS,
+  SQR,
+  SQRT,
+  MEMORY,
+  ANS,
+  LITERAL
+} token_type;
+
+// structure of a token for the expression parser
+typedef struct {
+  bool is_operator;
+  token_type type;
+  double value;
+} token;
 
 
 // declare functions
 int main(void);
 void display_help(void);
-bool process_expression(double * last_answer, double * memory, double * answer);
+bool process_expression(char expression[], const double * const last_answer, const double * const memory, double * const answer);
+token * tokenize(char expression[]);
 
 // begin the program!
 int main(void) {
@@ -96,7 +117,7 @@ int main(void) {
 
     } else {
       // treat as math expression
-      calc_success = process_expression(last_answer, memory, &answer);
+      calc_success = process_expression(command, last_answer, memory, &answer);
       if (calc_success) {
         last_answer = &answer;
         /* printf("ans = %.*lg\n", (int) log10(answer)+6, answer); */
@@ -137,12 +158,39 @@ void display_help(void) {
 //     memory to be used where keywoard 'memory' in calculation
 //     answer is where to store the answer
 // returns true if successful calculation
-bool process_expression(double * last_answer, double * memory, double * answer) {
+bool process_expression(char expression[], const double * const last_answer, const double * const memory, double * const answer) {
 
   double a = time(NULL); // placeholder for testing
-  // TODO: parse and calculate!
+
+
+  token * tokens = tokenize(expression);
+
+  // TODO: recognize +-*/ at beginning of string and do last answer chaining
+
+  // TODO: - sub in last_answer and memory
+  //       - parse and evaluate
+  //       - save answer in `answer` if successful
+  //       - return status
 
   *answer = a;
   return true;
 
 }
+
+token * tokenize(char expression[]) {
+
+  //// testing
+  token * tokens = malloc(2*sizeof(token));
+  tokens[0].type = ADD;
+  tokens[0].is_operator = true;
+  tokens[1].type = LITERAL;
+  tokens[1].value = 10.34;
+  tokens[1].is_operator = false;
+  ////
+
+  // TODO: loop over the expression and add discovered tokens to the arry (dynamically allocating if needed)
+
+  return tokens;
+
+}
+
