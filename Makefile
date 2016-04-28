@@ -2,7 +2,7 @@
 all: build
 
 build:
-	gcc a2.c -o a2.`uname -m`
+	gcc a2.c -o a2.`uname -m` -lm
 
 test:
 	./a2.`uname -m`
