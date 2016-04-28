@@ -166,6 +166,9 @@ bool process_expression(char expression[], const double * const last_answer, con
 
 
   token * tokens = tokenize(expression);
+  if (tokens == NULL) {
+    puts("Invalid expression!");
+  }
 
   // TODO: recognize +-*/ at beginning of string and do last answer chaining
 
@@ -181,6 +184,7 @@ bool process_expression(char expression[], const double * const last_answer, con
 
 token add_token(token * tokens, token t) {
   printf("found token: %d\n", t.type);
+  // TODO: add to tokens list
 }
 
 token * tokenize(char exp[]) {
@@ -205,6 +209,8 @@ token * tokenize(char exp[]) {
   while (i < len) {
     printf("exp[i]: %c\n", exp[i]);
     switch (exp[i]) {
+      case ' ':
+        break;
       case '+':;
         if (previous.is_operator) {
           // parse number
@@ -241,8 +247,28 @@ token * tokenize(char exp[]) {
         previous.is_operator = false;
         if (isalpha(exp[i])) {
           // parse memory/ans/otherkeywords
-        } else if (isdigit(exp[i]) || exp[i] == '.') { // allow begin with .?
+          if (strlen(&exp[i]) >= 6 && strncmp("memory", &exp[i], 6) == 0) {
+            previous = add_token(tokens, (token) {MEMORY, false, 0});
+            i = i + 5;
+          } else if (strlen(&exp[i]) >= 3 && strncmp("ans", &exp[i], 3) == 0) {
+            previous = add_token(tokens, (token) {ANS, false, 0});
+            i = i + 2;
+          } else {
+            // fail
+            return NULL;
+          }
+
+        } else if (isdigit(exp[i]) || exp[i] == '.') { // allow begin with '.'
           // parse number
+          double value = 0;
+          int l = 0;
+          sscanf(&exp[i], "%lf%n", &value, &l);
+          previous = add_token(tokens, (token) {LITERAL, false, value});
+          /* printf("value: %f\n", value); */
+          i = i + (l-1);
+        } else {
+          // unrecognized!
+          return NULL;
         }
         break;
     }
