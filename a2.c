@@ -2,7 +2,7 @@
  * HIT365 Assignment 2 code
  * Copyright 2016 Samuel Walladge
  *
- * Tested with GNU gcc 5.3.0 and Visual Studio 2015 compiler
+ * Tested with GNU gcc 5.3.0 (TODO: and Visual Studio 2015 compiler)
  */
 
 #include <stdio.h>
@@ -71,6 +71,11 @@ int main(void) {
     printf("%s", "exp>> ");
     fgets(line, LINE_BUFFER, stdin);
     command = strip(line); // strip whitespace
+
+    // convert to lowercase
+    for(size_t i=0; i<strlen(line); ++i) {
+      command[i] = tolower(command[i]);
+    }
 
     if (*command == 0) {
       // ignore empty line
@@ -243,7 +248,7 @@ token * tokenize(char exp[]) {
     }
     ++i;
   }
-    
+
 
   return tokens;
 
