@@ -23,6 +23,8 @@
 
 // all possible token types for expressions (supported operators, etc.)
 typedef enum {
+  LITERAL,
+  IS_OPERATOR,
   LEFT_PARENS,
   RIGHT_PARENS,
   MULTIPLY,
@@ -30,14 +32,12 @@ typedef enum {
   ADD,
   MINUS,
   SQR,
-  SQRT,
-  LITERAL
+  SQRT
 } token_type;
 
 // structure of a token for the expression parser
 typedef struct token {
   token_type type;
-  bool is_operator;
   double value;
 } token;
 
@@ -170,7 +170,7 @@ void print_linked_list(linked_list tokens_head) {
   linked_list current_token = tokens_head;
   printf("%s", "[");
   while (true) {
-    if (current_token.t.is_operator) {
+    if (current_token.t.type >= IS_OPERATOR) {
       printf("op %d", current_token.t.type);
     } else {
       printf("val %.6f", current_token.t.value);
@@ -256,7 +256,7 @@ linked_list * convert_rpn(const linked_list * const token_list) {
 
   linked_list current_token = *token_list;
   while (true) {
-    if (current_token.t.is_operator) {
+    if (current_token.t.type >= IS_OPERATOR) {
       operator_stack = stack_push(operator_stack, current_token.t);
     } else {
       queue(output_queue, current_token.t);
@@ -302,11 +302,11 @@ bool process_expression(char expression[], const double * const last_answer, con
 
 
   // CHAIN TO LAST ANSWER IF NEEDED
-  if (tokens_head->t.is_operator && last_answer != NULL) {
+  if (tokens_head->t.type >= IS_OPERATOR && last_answer != NULL) {
     linked_list new_head;
     linked_list * new_tokens_head = &new_head;
     new_tokens_head->isfull = true;
-    new_tokens_head->t = (token) {LITERAL, false, *last_answer};
+    new_tokens_head->t = (token) {LITERAL, *last_answer};
     new_tokens_head->next = tokens_head;
     tokens_head = new_tokens_head;
   }
@@ -365,9 +365,9 @@ linked_list * tokenize(char exp[], const double * const last_answer, const doubl
   // setup a dummy previous token to decide how to handle expressions beginning with + or -
   token previous;
   if (last_answer != NULL) {
-    previous.is_operator = false;
+    previous.type = LITERAL;
   } else {
-    previous.is_operator = true;
+    previous.type = IS_OPERATOR;
   }
   bool grab_number = false;
   while (i < len) {
@@ -379,48 +379,47 @@ linked_list * tokenize(char exp[], const double * const last_answer, const doubl
       //  - if was operator, then assume it begins a positive/negative number
       //  - otherwise should be operator
       case '+':;
-        if (previous.is_operator) {
+        if (previous.type >= IS_OPERATOR) {
           // parse number
           grab_number = true;
         } else {
-          previous = add_token(tokens_head, (token) {ADD, true, 0});
+          previous = add_token(tokens_head, (token) {ADD, 0});
         }
         break;
       case '-':
-        if (previous.is_operator) {
+        if (previous.type >= IS_OPERATOR) {
           // parse number (since number can begin with -)
           grab_number = true;
         } else {
-          previous = add_token(tokens_head, (token) {MINUS, true, 0});
+          previous = add_token(tokens_head, (token) {MINUS, 0});
         }
         break;
       case '*':
-        previous = add_token(tokens_head, (token) {MULTIPLY, true, 0});
+        previous = add_token(tokens_head, (token) {MULTIPLY, 0});
         break;
       case '/':
-        previous = add_token(tokens_head, (token) {DIVIDE, true, 0});
+        previous = add_token(tokens_head, (token) {DIVIDE, 0});
         break;
       case '^':
-        previous = add_token(tokens_head, (token) {SQR, true, 0});
+        previous = add_token(tokens_head, (token) {SQR, 0});
         break;
       case '#':
-        previous = add_token(tokens_head, (token) {SQRT, true, 0});
+        previous = add_token(tokens_head, (token) {SQRT, 0});
         break;
       case '(':
-        previous = add_token(tokens_head, (token) {LEFT_PARENS, true, 0});
+        previous = add_token(tokens_head, (token) {LEFT_PARENS, 0});
         break;
       case ')':
-        previous = add_token(tokens_head, (token) {RIGHT_PARENS, true, 0});
+        previous = add_token(tokens_head, (token) {RIGHT_PARENS, 0});
         break;
       default:
-        /* previous.is_operator = false; */
         if (isalpha(exp[i])) {
           // parse memory/ans/otherkeywords
           if (strlen(&exp[i]) >= 6 && strncmp("memory", &exp[i], 6) == 0 && memory != NULL) {
-            previous = add_token(tokens_head, (token) {LITERAL, false, *memory});
+            previous = add_token(tokens_head, (token) {LITERAL, *memory});
             i = i + 5;
           } else if (strlen(&exp[i]) >= 3 && strncmp("ans", &exp[i], 3) == 0 && last_answer != NULL) {
-            previous = add_token(tokens_head, (token) {LITERAL, false, *last_answer});
+            previous = add_token(tokens_head, (token) {LITERAL, *last_answer});
             i = i + 2;
           } else {
             // fail
@@ -442,7 +441,7 @@ linked_list * tokenize(char exp[], const double * const last_answer, const doubl
       if (l == 0) {
         return NULL;
       }
-      previous = add_token(tokens_head, (token) {LITERAL, false, value});
+      previous = add_token(tokens_head, (token) {LITERAL, value});
       i = i + (l-1);
     }
 
@@ -499,7 +498,7 @@ bool evaluate_rpn(const linked_list * const rpn_tokens, double * const answer) {
 
   linked_list current_token = *rpn_tokens;
   while (true) {
-    if (current_token.t.is_operator) {
+    if (current_token.t.type >= IS_OPERATOR) {
       printf("answer stack: ");
       print_linked_list(*answer_stack);
       left = pop_head(answer_stack);
@@ -511,7 +510,7 @@ bool evaluate_rpn(const linked_list * const rpn_tokens, double * const answer) {
       } else {
         // other operators
       }
-      answer_stack = stack_push(answer_stack, (token) {LITERAL, false, temp_answer});
+      answer_stack = stack_push(answer_stack, (token) {LITERAL, temp_answer});
     } else {
       printf("pushing %f - new answerstack: ", current_token.t.value);
       answer_stack = stack_push(answer_stack, current_token.t);
