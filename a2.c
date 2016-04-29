@@ -43,13 +43,19 @@ typedef struct token {
   double value;
 } token;
 
+typedef struct linked_list {
+  token t;
+  bool isfull;
+  struct linked_list * next;
+} linked_list;
 
 // declare functions
 int main(void);
 void display_help(void);
 bool process_expression(char expression[], const double * const last_answer, const double * const memory, double * const answer);
-token * tokenize(char expression[]);
+linked_list * tokenize(char expression[]);
 char * strip(const char * str);
+token add_token(linked_list * tokens_head, token t);
 
 
 
@@ -155,6 +161,23 @@ void display_help(void) {
 
 }
 
+void print_linked_list(linked_list tokens_head) {
+  linked_list current_token = tokens_head;
+  printf("%s", "[");
+  while (true) {
+    printf("%d", current_token.t.type);
+
+    if (current_token.next == NULL) {
+      puts("]");
+      break; // end of linked list
+    } else {
+      printf("%s", ", ");
+      current_token = *current_token.next;
+    }
+  }
+}
+
+
 // takes 3 pointers:
 //     last_answer to be used for chaining calculations
 //     memory to be used where keywoard 'memory' in calculation
@@ -165,10 +188,13 @@ bool process_expression(char expression[], const double * const last_answer, con
   double a = time(NULL); // placeholder for testing
 
 
-  token * tokens = tokenize(expression);
-  if (tokens == NULL) {
+  linked_list * tokens_head = tokenize(expression);
+  if (tokens_head == NULL) {
     puts("Invalid expression!");
+    return false;
   }
+
+  print_linked_list(*tokens_head);
 
   // TODO: recognize +-*/ at beginning of string and do last answer chaining
 
@@ -182,32 +208,39 @@ bool process_expression(char expression[], const double * const last_answer, con
 
 }
 
-token add_token(token * tokens, token t) {
-  printf("found token: %d\n", t.type);
-  // TODO: add to tokens list
+token add_token(linked_list * tokens_head, token t) {
+  /* printf("found token: %d\n", t.type); */
+  
+  linked_list * current_token = tokens_head;
+  while (true) {
+    if (current_token->isfull) {
+      if (current_token->next == NULL) {
+        current_token->next = malloc(sizeof(linked_list));
+      }
+      current_token = current_token->next;
+    } else {
+      current_token->t = t;
+      current_token->isfull = true;
+      break;
+    }
+  }
+  return t;
 }
 
-token * tokenize(char exp[]) {
+linked_list * tokenize(char exp[]) {
 
-  token * tokens = malloc(2*sizeof(token));
+  linked_list * tokens_head = malloc(sizeof(linked_list));
 
-  printf("expression: %s\n", exp);
+  (*tokens_head).next = NULL;
+  (*tokens_head).isfull = false;
 
-
-  //// testing
-  tokens[0].type = ADD;
-  tokens[0].is_operator = true;
-  tokens[1].type = LITERAL;
-  tokens[1].value = 10.34;
-  tokens[1].is_operator = false;
-  tokens[2].is_operator = false;
-  ////
+  /* printf("expression: %s\n", exp); */
 
   size_t i = 0;
   size_t len = strlen(exp);
   token previous = {LITERAL, true, 0};
   while (i < len) {
-    printf("exp[i]: %c\n", exp[i]);
+    /* printf("exp[i]: %c\n", exp[i]); */
     switch (exp[i]) {
       case ' ':
         break;
@@ -215,43 +248,43 @@ token * tokenize(char exp[]) {
         if (previous.is_operator) {
           // parse number
         } else {
-          previous = add_token(tokens, (token) {ADD, true, 0});
+          previous = add_token(tokens_head, (token) {ADD, true, 0});
         }
         break;
       case '-':
         if (previous.is_operator) {
           // parse number (since number can begin with -)
         } else {
-          previous = add_token(tokens, (token) {MINUS, true, 0});
+          previous = add_token(tokens_head, (token) {MINUS, true, 0});
         }
         break;
       case '*':
-        previous = add_token(tokens, (token) {MULTIPLY, true, 0});
+        previous = add_token(tokens_head, (token) {MULTIPLY, true, 0});
         break;
       case '/':
-        previous = add_token(tokens, (token) {DIVIDE, true, 0});
+        previous = add_token(tokens_head, (token) {DIVIDE, true, 0});
         break;
       case '^':
-        previous = add_token(tokens, (token) {SQR, true, 0});
+        previous = add_token(tokens_head, (token) {SQR, true, 0});
         break;
       case '#':
-        previous = add_token(tokens, (token) {SQRT, true, 0});
+        previous = add_token(tokens_head, (token) {SQRT, true, 0});
         break;
       case '(':
-        previous = add_token(tokens, (token) {LEFT_PARENS, true, 0});
+        previous = add_token(tokens_head, (token) {LEFT_PARENS, true, 0});
         break;
       case ')':
-        previous = add_token(tokens, (token) {RIGHT_PARENS, true, 0});
+        previous = add_token(tokens_head, (token) {RIGHT_PARENS, true, 0});
         break;
       default:
         previous.is_operator = false;
         if (isalpha(exp[i])) {
           // parse memory/ans/otherkeywords
           if (strlen(&exp[i]) >= 6 && strncmp("memory", &exp[i], 6) == 0) {
-            previous = add_token(tokens, (token) {MEMORY, false, 0});
+            previous = add_token(tokens_head, (token) {MEMORY, false, 0});
             i = i + 5;
           } else if (strlen(&exp[i]) >= 3 && strncmp("ans", &exp[i], 3) == 0) {
-            previous = add_token(tokens, (token) {ANS, false, 0});
+            previous = add_token(tokens_head, (token) {ANS, false, 0});
             i = i + 2;
           } else {
             // fail
@@ -263,7 +296,7 @@ token * tokenize(char exp[]) {
           double value = 0;
           int l = 0;
           sscanf(&exp[i], "%lf%n", &value, &l);
-          previous = add_token(tokens, (token) {LITERAL, false, value});
+          previous = add_token(tokens_head, (token) {LITERAL, false, value});
           /* printf("value: %f\n", value); */
           i = i + (l-1);
         } else {
@@ -276,7 +309,7 @@ token * tokenize(char exp[]) {
   }
 
 
-  return tokens;
+  return tokens_head;
 
 }
 
