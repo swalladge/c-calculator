@@ -61,15 +61,20 @@ bool evaluate_rpn(const linked_list * const rpn_tokens, double * const answer);
 int main(void);
 token * pop_head(linked_list * tokens_head);
 void print_linked_list(linked_list tokens_head);
-bool process_expression(char expression[], const double * const last_answer, const double * const memory, double * const answer);
+bool process_expression(char expression[], const double * const last_answer,
+                        const double * const memory,
+                        double * const answer);
 linked_list * queue(linked_list * tokens_head, token t);
 char * strip(const char * str);
-linked_list * tokenize(char exp[], const double * const last_answer, const double * const memory);
+linked_list * tokenize(char exp[], const double * const last_answer,
+                       const double * const memory);
 linked_list * stack_push(linked_list * tokens_head, token t);
 
 
 
-// begin the program!
+////////////////////////////////////////////////////////////////////////////////
+// MAIN - BEGIN THE PROGRAM!
+////////////////////////////////////////////////////////////////////////////////
 int main(void) {
 
   puts("Type \"help\" or enter a mathematical expression.");
@@ -139,6 +144,7 @@ int main(void) {
       if (calc_success) {
         last_answer = &answer;
         /* printf("ans = %.*lg\n", (int) log10(answer)+6, answer); */
+        // TODO: strip trailing zeros
         printf("ans = %.6lf\n", answer);
       }
     }
@@ -151,109 +157,58 @@ int main(void) {
   return 0;
 }
 
-void display_help(void) {
-  puts("COMMAND       FUNCTION");
-  puts("exit          Exits the program.");
-  puts("help          Displays this message.");
-  puts("memory        Displays memory value.");
-  puts("ans           Displays last answer value.");
-  puts("store         Saves last answer to memory.");
-  puts("reset         Wipes memory and last answer values.");
-  puts("");
-  puts("OPERATOR    DESCRIPTION    SYNTAX");
-  puts("+           addition       [a+b|+a]");
-  puts("-           subtraction    [a-b|-a]");
-  puts("*           multiplication [a+b|*a]");
-  puts("/           division       [a+b|/a]");
-  puts("^           square(x)      [a^|^]  ");
-  puts("#           squareroot(x)  [a#|#]  ");
+////////////////////////////////////////////////////////////////////////////////
+// MAIN EXPRESSION PROCESSING FUNCTIONS
+////////////////////////////////////////////////////////////////////////////////
 
+// takes 3 pointers:
+//     last_answer to be used for chaining calculations
+//     memory to be used where keywoard 'memory' in calculation
+//     answer is where to store the answer
+// returns true if successful calculation
+bool process_expression(char expression[], const double * const last_answer,
+                        const double * const memory, double * const answer) {
 
-}
-
-void print_linked_list(linked_list tokens_head) {
-  linked_list current_token = tokens_head;
-  printf("%s", "[");
-  while (true) {
-    if (current_token.t.type >= IS_OPERATOR) {
-      printf("op %d", current_token.t.type);
-    } else {
-      printf("val %.6f", current_token.t.value);
-    }
-
-    if (current_token.next == NULL) {
-      puts("]");
-      break; // end of linked list
-    } else {
-      printf("%s", ", ");
-      current_token = *current_token.next;
-    }
+  // TOKENIZE
+  bool last = false;
+  if (last_answer != NULL) {
+    last = true;
   }
-}
-
-
-// add to the head of a linked_list 
-// - also returns pointer to head (although pointer does not change) for convenience
-linked_list * stack_push(linked_list * tokens_head, token t) {
-  if (!tokens_head->isfull) { // if not full - ie. new empty list
-    tokens_head->next = NULL;
-  } else {
-    // move head data to new node, which is inserted between new pushed data and original head.next
-    // [<tokens_head with new data>, <new_next with old tokens_head data>, <old tokens_head.next>...]
-    linked_list * new_next = malloc(sizeof(linked_list));
-    new_next->next = tokens_head->next;
-    new_next->t = tokens_head->t;
-    new_next->isfull = tokens_head->isfull;
-
-    tokens_head->next = new_next;
+  linked_list * tokens_head = tokenize(expression, last_answer, memory);
+  if (tokens_head == NULL) {
+    puts("Invalid expression!");
+    return false;
   }
+  /* print_linked_list(*tokens_head); */
 
-  tokens_head->t = t;
-  tokens_head->isfull = true;
-  return tokens_head;
-}
 
-// add to the end of a linked_list
-// returns pointer to the head for convenience (same pointer as in arguments)
-linked_list * queue(linked_list * tokens_head, token t) {
-  if (!tokens_head->isfull) { // if still empty list
-      tokens_head->t = t;
-      tokens_head->isfull = true;
-      tokens_head->next = NULL;
-      return tokens_head;
+  // CHAIN TO LAST ANSWER IF NEEDED
+  if (tokens_head->t.type >= IS_OPERATOR && last_answer != NULL) {
+    linked_list new_head;
+    linked_list * new_tokens_head = &new_head;
+    new_tokens_head->isfull = true;
+    new_tokens_head->t = (token) {LITERAL, *last_answer};
+    new_tokens_head->next = tokens_head;
+    tokens_head = new_tokens_head;
   }
-  linked_list * current_token = tokens_head;
-  while (true) {
-    if (current_token->next == NULL) {
-      current_token->next = malloc(sizeof(linked_list));
-      current_token->next->isfull = true;
-      current_token->next->next = NULL;
-      current_token->next->t = t;
-      break;
-    } else {
-      current_token = current_token->next;
-    }
-  }
-  return tokens_head;
-}
+  /* print_linked_list(*tokens_head); */
 
-// remove and return the first element in the linked list
-token * pop_head(linked_list * tokens_head) {
-  if (tokens_head->isfull) {
-    token * t = malloc(sizeof(token));
-    *t = tokens_head->t;
-    if (tokens_head->next != NULL) {
-      tokens_head->isfull = tokens_head->next->isfull;
-      tokens_head->t = tokens_head->next->t;
-      tokens_head->next = tokens_head->next->next;
-    } else {
-      tokens_head->isfull = false;
-      tokens_head->next = NULL;
-    }
-    return t;
-  } else {
-    return NULL;
+
+  // CONVERT TO RPN FORM
+  linked_list * rpn_tokens = convert_rpn(tokens_head);
+  if (rpn_tokens == NULL) {
+    return false;
   }
+  /* print_linked_list(*rpn_tokens); */
+
+  // EVALUATE EXPRESSION
+  bool result = evaluate_rpn(rpn_tokens, answer);
+
+  if (!result) {
+    puts("Invalid expression!");
+  }
+  return result;
+
 }
 
 // takes a linked_list and returns a new linked list with the tokens now in RPN
@@ -300,9 +255,8 @@ linked_list * convert_rpn(const linked_list * const token_list) {
       queue(output_queue, current_token.t);
     }
 
-    // TODO: more processing to handle parens, operator precedence, etc.
 
-    if (current_token.next == NULL) { // reached end - run off the remaining operators
+    if (current_token.next == NULL) { // reached end - grab remaining operators
       token * t = NULL;
       t = pop_head(operator_stack);
       while (t != NULL) {
@@ -321,83 +275,14 @@ linked_list * convert_rpn(const linked_list * const token_list) {
     }
   }
 
-  print_linked_list(*output_queue);
   return output_queue;
 }
 
-// takes 3 pointers:
-//     last_answer to be used for chaining calculations
-//     memory to be used where keywoard 'memory' in calculation
-//     answer is where to store the answer
-// returns true if successful calculation
-bool process_expression(char expression[], const double * const last_answer, const double * const memory, double * const answer) {
-
-  // TOKENIZE
-  bool last = false;
-  if (last_answer != NULL) {
-    last = true;
-  }
-  linked_list * tokens_head = tokenize(expression, last_answer, memory);
-  if (tokens_head == NULL) {
-    puts("Invalid expression!");
-    return false;
-  }
-  /* print_linked_list(*tokens_head); */
-
-
-  // CHAIN TO LAST ANSWER IF NEEDED
-  if (tokens_head->t.type >= IS_OPERATOR && last_answer != NULL) {
-    linked_list new_head;
-    linked_list * new_tokens_head = &new_head;
-    new_tokens_head->isfull = true;
-    new_tokens_head->t = (token) {LITERAL, *last_answer};
-    new_tokens_head->next = tokens_head;
-    tokens_head = new_tokens_head;
-  }
-  /* print_linked_list(*tokens_head); */
-
-  
-  // CONVERT TO RPN FORM
-  linked_list * rpn_tokens = convert_rpn(tokens_head);
-  if (rpn_tokens == NULL) {
-    return false;
-  }
-  /* print_linked_list(*rpn_tokens); */
-
-  // EVALUATE EXPRESSION
-  bool result = evaluate_rpn(rpn_tokens, answer);
-
-  if (!result) {
-    puts("Invalid expression!");
-  }
-  return result;
-
-}
-
-
-// returns the token added for convenience
-token add_token(linked_list * tokens_head, token t) {
-  /* printf("found token: %d\n", t.type); */
-  
-  linked_list * current_token = tokens_head;
-  while (true) {
-    if (current_token->isfull) {
-      if (current_token->next == NULL) {
-        current_token->next = malloc(sizeof(linked_list));
-      }
-      current_token = current_token->next;
-    } else {
-      current_token->t = t;
-      current_token->isfull = true;
-      break;
-    }
-  }
-  return t;
-}
 
 // splits the expression into tokens (a makeshift linked list structure)
 // returns a pointer to the list, or NULL if tokenizing failed
-linked_list * tokenize(char exp[], const double * const last_answer, const double * const memory) {
+linked_list * tokenize(char exp[], const double * const last_answer,
+                       const double * const memory) {
 
   linked_list * tokens_head = malloc(sizeof(linked_list));
 
@@ -409,7 +294,8 @@ linked_list * tokenize(char exp[], const double * const last_answer, const doubl
   size_t i = 0;
   size_t len = strlen(exp);
 
-  // setup a dummy previous token to decide how to handle expressions beginning with + or -
+  // setup a dummy previous token to 
+  //  decide how to handle expressions beginning with + or -
   token previous;
   if (last_answer != NULL) {
     previous.type = LITERAL;
@@ -462,10 +348,12 @@ linked_list * tokenize(char exp[], const double * const last_answer, const doubl
       default:
         if (isalpha(exp[i])) {
           // parse memory/ans/otherkeywords
-          if (strlen(&exp[i]) >= 6 && strncmp("memory", &exp[i], 6) == 0 && memory != NULL) {
+          if (strlen(&exp[i]) >= 6 && strncmp("memory", &exp[i], 6) == 0
+              && memory != NULL) {
             previous = add_token(tokens_head, (token) {LITERAL, *memory});
             i = i + 5;
-          } else if (strlen(&exp[i]) >= 3 && strncmp("ans", &exp[i], 3) == 0 && last_answer != NULL) {
+          } else if (strlen(&exp[i]) >= 3 && strncmp("ans", &exp[i], 3) == 0
+              && last_answer != NULL) {
             previous = add_token(tokens_head, (token) {LITERAL, *last_answer});
             i = i + 2;
           } else {
@@ -473,14 +361,14 @@ linked_list * tokenize(char exp[], const double * const last_answer, const doubl
             return NULL;
           }
 
-        } else if (isdigit(exp[i]) || (exp[i] == '.' && isdigit(exp[i+1]))) { // allow begin with '.'
-          grab_number = true; // parse number
+        } else if (isdigit(exp[i]) || (exp[i] == '.' && isdigit(exp[i+1]))) {
+          grab_number = true; // tell it to parse number later
         } else {
           return NULL;
         }
         break;
     }
-    if (grab_number) { // this check down here to enable handling + or - in different ways
+    if (grab_number) { // this is here to enable different handling of + and -
       grab_number = false;
       double value = 0;
       int l = 0;
@@ -501,41 +389,8 @@ linked_list * tokenize(char exp[], const double * const last_answer, const doubl
 }
 
 
-// source for information on stripping whitespace here from http://stackoverflow.com/questions/122616/how-do-i-trim-leading-trailing-whitespace-in-a-standard-way
-char * strip(const char * s) {
-  char * out;
-
-  while(isspace(*s)) { // strip leading spaces
-    ++s;
-  }
-
-  if(*s == 0) { // was it all spaces?
-    out = malloc(sizeof(char));
-    out[0] = '\0';
-    return out;
-  }
-
-  const char *end = s + strlen(s) - 1;
-  while(end > s && isspace(*end)) { // strip trailing spaces
-    --end;
-  }
-  ++end;
-
-  int len = strlen(s);
-  // Set output size to minimum of trimmed string length and buffer size minus 1
-  size_t out_size = (end - s) < len-1 ? (end - s) : len-1;
-
-  // Copy trimmed string and add null terminator
-  out = malloc(out_size * sizeof(char));
-  memcpy(out, s, out_size);
-  out[out_size] = 0;
-
-  return out;
-}
-
-
 // evaluates a linked list of tokens in rpn/postfix order
-// sets answer to the result of the evaluation, returns whether successful or not
+// sets answer to the result of the evaluation, returns true if successful
 bool evaluate_rpn(const linked_list * const rpn_tokens, double * const answer) {
 
   token * left = NULL;
@@ -600,13 +455,186 @@ bool evaluate_rpn(const linked_list * const rpn_tokens, double * const answer) {
 
   token * final = pop_head(answer_stack);
 
-  // make sure no more elements in the answer stack and that we have a final answer
+  // make sure no more elements in the answer stack and we have a final answer
   if (final == NULL || answer_stack->next != NULL || answer_stack->isfull) {
     return false;
   }
-  
+
   *answer = final->value;
 
   return true;
 
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// LINKED LIST OPERATIONS
+////////////////////////////////////////////////////////////////////////////////
+
+// add to the head of a linked_list
+// - returns pointer to head (although pointer does not change) for convenience
+linked_list * stack_push(linked_list * tokens_head, token t) {
+  if (!tokens_head->isfull) { // if not full - ie. new empty list
+    tokens_head->next = NULL;
+  } else {
+    // move head data to new node, 
+    //  which is inserted between new pushed data and original head.next
+    // [<tokens_head with new data>, 
+    //  <new_next with old tokens_head data>, 
+    //  <old tokens_head.next>...]
+    linked_list * new_next = malloc(sizeof(linked_list));
+    new_next->next = tokens_head->next;
+    new_next->t = tokens_head->t;
+    new_next->isfull = tokens_head->isfull;
+
+    tokens_head->next = new_next;
+  }
+
+  tokens_head->t = t;
+  tokens_head->isfull = true;
+  return tokens_head;
+}
+
+// add to the end of a linked_list
+// returns pointer to the head for convenience (same pointer as in arguments)
+linked_list * queue(linked_list * tokens_head, token t) {
+  if (!tokens_head->isfull) { // if still empty list
+      tokens_head->t = t;
+      tokens_head->isfull = true;
+      tokens_head->next = NULL;
+      return tokens_head;
+  }
+  linked_list * current_token = tokens_head;
+  while (true) {
+    if (current_token->next == NULL) {
+      current_token->next = malloc(sizeof(linked_list));
+      current_token->next->isfull = true;
+      current_token->next->next = NULL;
+      current_token->next->t = t;
+      break;
+    } else {
+      current_token = current_token->next;
+    }
+  }
+  return tokens_head;
+}
+
+// remove and return the first element in the linked list
+token * pop_head(linked_list * tokens_head) {
+  if (tokens_head->isfull) {
+    token * t = malloc(sizeof(token));
+    *t = tokens_head->t;
+    if (tokens_head->next != NULL) {
+      tokens_head->isfull = tokens_head->next->isfull;
+      tokens_head->t = tokens_head->next->t;
+      tokens_head->next = tokens_head->next->next;
+    } else {
+      tokens_head->isfull = false;
+      tokens_head->next = NULL;
+    }
+    return t;
+  } else {
+    return NULL;
+  }
+}
+
+// returns the token added for convenience
+// TODO: refactor this - this is same as queue()?
+token add_token(linked_list * tokens_head, token t) {
+  /* printf("found token: %d\n", t.type); */
+
+  linked_list * current_token = tokens_head;
+  while (true) {
+    if (current_token->isfull) {
+      if (current_token->next == NULL) {
+        current_token->next = malloc(sizeof(linked_list));
+      }
+      current_token = current_token->next;
+    } else {
+      current_token->t = t;
+      current_token->isfull = true;
+      break;
+    }
+  }
+  return t;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// SMALLER HELPER FUNCTIONS
+////////////////////////////////////////////////////////////////////////////////
+
+// strips whitespace from beginning and end of string
+// source for information on stripping whitespace from:
+// - http://stackoverflow.com/questions/122616/how-do-i-trim-leading-trailing-whitespace-in-a-standard-way
+char * strip(const char * s) {
+  char * out;
+
+  while(isspace(*s)) { // strip leading spaces
+    ++s;
+  }
+
+  if(*s == 0) { // was it all spaces?
+    out = malloc(sizeof(char));
+    out[0] = '\0';
+    return out;
+  }
+
+  const char *end = s + strlen(s) - 1;
+  while(end > s && isspace(*end)) { // strip trailing spaces
+    --end;
+  }
+  ++end;
+
+  int len = strlen(s);
+  // Set output size to minimum of trimmed string length and buffer size minus 1
+  size_t out_size = (end - s) < len-1 ? (end - s) : len-1;
+
+  // Copy trimmed string and add null terminator
+  out = malloc(out_size * sizeof(char));
+  memcpy(out, s, out_size);
+  out[out_size] = 0;
+
+  return out;
+}
+
+// print out a linked_list of tokens - for debugging purposes
+void print_linked_list(linked_list tokens_head) {
+  linked_list current_token = tokens_head;
+  printf("%s", "[");
+  while (true) {
+    if (current_token.t.type >= IS_OPERATOR) {
+      printf("op %d", current_token.t.type);
+    } else {
+      printf("val %.6f", current_token.t.value);
+    }
+
+    if (current_token.next == NULL) {
+      puts("]");
+      break; // end of linked list
+    } else {
+      printf("%s", ", ");
+      current_token = *current_token.next;
+    }
+  }
+}
+
+
+// prints help for operating the program
+void display_help(void) {
+  puts("COMMAND       FUNCTION");
+  puts("exit          Exits the program.");
+  puts("help          Displays this message.");
+  puts("memory        Displays memory value.");
+  puts("ans           Displays last answer value.");
+  puts("store         Saves last answer to memory.");
+  puts("reset         Wipes memory and last answer values.");
+  puts("");
+  puts("OPERATOR    DESCRIPTION    SYNTAX");
+  puts("+           addition       [a+b|+a]");
+  puts("-           subtraction    [a-b|-a]");
+  puts("*           multiplication [a+b|*a]");
+  puts("/           division       [a+b|/a]");
+  puts("^           square(x)      [a^|^]  ");
+  puts("#           squareroot(x)  [a#|#]  ");
 }
