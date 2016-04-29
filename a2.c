@@ -31,8 +31,6 @@ typedef enum {
   MINUS,
   SQR,
   SQRT,
-  MEMORY,
-  ANS,
   LITERAL
 } token_type;
 
@@ -54,7 +52,7 @@ typedef struct linked_list {
 int main(void);
 void display_help(void);
 bool process_expression(char expression[], const double * const last_answer, const double * const memory, double * const answer);
-linked_list * tokenize(char expression[]);
+linked_list * tokenize(char exp[], const double * const last_answer, const double * const memory);
 char * strip(const char * str);
 token add_token(linked_list * tokens_head, token t);
 void print_linked_list(linked_list tokens_head);
@@ -167,7 +165,11 @@ void print_linked_list(linked_list tokens_head) {
   linked_list current_token = tokens_head;
   printf("%s", "[");
   while (true) {
-    printf("%d", current_token.t.type);
+    if (current_token.t.is_operator) {
+      printf("op %d", current_token.t.type);
+    } else {
+      printf("val %.6f", current_token.t.value);
+    }
 
     if (current_token.next == NULL) {
       puts("]");
@@ -179,7 +181,6 @@ void print_linked_list(linked_list tokens_head) {
   }
 }
 
-
 // takes 3 pointers:
 //     last_answer to be used for chaining calculations
 //     memory to be used where keywoard 'memory' in calculation
@@ -189,17 +190,31 @@ bool process_expression(char expression[], const double * const last_answer, con
 
   double a = time(NULL); // placeholder for testing
 
-
-  linked_list * tokens_head = tokenize(expression);
+  // TOKENIZE
+  bool last = false;
+  if (last_answer != NULL) {
+    last = true;
+  }
+  linked_list * tokens_head = tokenize(expression, last_answer, memory);
   if (tokens_head == NULL) {
     puts("Invalid expression!");
     return false;
   }
-
   print_linked_list(*tokens_head);
 
-  // TODO: recognize +-*/ at beginning of string and do last answer chaining
 
+  // CHAIN TO LAST ANSWER IF NEEDED
+  if (tokens_head->t.is_operator && last_answer != NULL) {
+    linked_list new_head;
+    linked_list * new_tokens_head = &new_head;
+    new_tokens_head->isfull = true;
+    new_tokens_head->t = (token) {LITERAL, false, *last_answer};
+    new_tokens_head->next = tokens_head;
+    tokens_head = new_tokens_head;
+  }
+  print_linked_list(*tokens_head);
+
+  
   // TODO: - sub in last_answer and memory
   //       - parse and evaluate
   //       - save answer in `answer` if successful
@@ -232,7 +247,7 @@ token add_token(linked_list * tokens_head, token t) {
 
 // splits the expression into tokens (a makeshift linked list structure)
 // returns a pointer to the list, or NULL if tokenizing failed
-linked_list * tokenize(char exp[]) {
+linked_list * tokenize(char exp[], const double * const last_answer, const double * const memory) {
 
   linked_list * tokens_head = malloc(sizeof(linked_list));
 
@@ -243,7 +258,14 @@ linked_list * tokenize(char exp[]) {
 
   size_t i = 0;
   size_t len = strlen(exp);
-  token previous = {LITERAL, true, 0};
+
+  // setup a dummy previous token to decide how to handle expressions beginning with + or -
+  token previous;
+  if (last_answer != NULL) {
+    previous.is_operator = false;
+  } else {
+    previous.is_operator = true;
+  }
   bool grab_number = false;
   while (i < len) {
     /* printf("exp[i]: %c\n", exp[i]); */
@@ -291,11 +313,11 @@ linked_list * tokenize(char exp[]) {
         /* previous.is_operator = false; */
         if (isalpha(exp[i])) {
           // parse memory/ans/otherkeywords
-          if (strlen(&exp[i]) >= 6 && strncmp("memory", &exp[i], 6) == 0) {
-            previous = add_token(tokens_head, (token) {MEMORY, false, 0});
+          if (strlen(&exp[i]) >= 6 && strncmp("memory", &exp[i], 6) == 0 && memory != NULL) {
+            previous = add_token(tokens_head, (token) {LITERAL, false, *memory});
             i = i + 5;
-          } else if (strlen(&exp[i]) >= 3 && strncmp("ans", &exp[i], 3) == 0) {
-            previous = add_token(tokens_head, (token) {ANS, false, 0});
+          } else if (strlen(&exp[i]) >= 3 && strncmp("ans", &exp[i], 3) == 0 && last_answer != NULL) {
+            previous = add_token(tokens_head, (token) {LITERAL, false, *last_answer});
             i = i + 2;
           } else {
             // fail
