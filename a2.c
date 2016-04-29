@@ -320,6 +320,9 @@ bool process_expression(char expression[], const double * const last_answer, con
   // EVALUATE EXPRESSION
   bool result = evaluate_rpn(rpn_tokens, answer);
 
+  if (!result) {
+    puts("Invalid expression!");
+  }
   return result;
 
 }
@@ -489,9 +492,45 @@ char * strip(const char * s) {
 // sets answer to the result of the evaluation, returns whether successful or not
 bool evaluate_rpn(const linked_list * const rpn_tokens, double * const answer) {
 
-  // TODO
+  token * left = NULL;
+  token * right = NULL;
+  double temp_answer;
+  linked_list * answer_stack = malloc(sizeof(linked_list));
 
-  *answer = 42;
+  linked_list current_token = *rpn_tokens;
+  while (true) {
+    if (current_token.t.is_operator) {
+      printf("answer stack: ");
+      print_linked_list(*answer_stack);
+      left = pop_head(answer_stack);
+      right = pop_head(answer_stack);
+      printf("found operator. left = %p, right = %p\n", left, right);
+      // check nulls
+      if (current_token.t.type == ADD) {
+        temp_answer = left->value + right->value;
+      } else {
+        // other operators
+      }
+      answer_stack = stack_push(answer_stack, (token) {LITERAL, false, temp_answer});
+    } else {
+      printf("pushing %f - new answerstack: ", current_token.t.value);
+      answer_stack = stack_push(answer_stack, current_token.t);
+      print_linked_list(*answer_stack);
+    }
+
+    if (current_token.next == NULL) {
+      break; // end of linked list
+    } else {
+      current_token = *current_token.next;
+    }
+  }
+
+  // check if answerstack only got one token
+
+  token * final = pop_head(answer_stack);
+  
+  *answer = final->value;
+  /* *answer = 42; */
 
   return true;
 
