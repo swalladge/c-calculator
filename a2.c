@@ -181,6 +181,101 @@ void print_linked_list(linked_list tokens_head) {
   }
 }
 
+
+// add to the head of a linked_list
+linked_list * stack_push(linked_list * tokens_head, token t) {
+  if (!tokens_head->isfull) { // if not full - ie. new empty list
+    tokens_head->t = t;
+    tokens_head->isfull = true;
+    tokens_head->next = NULL;
+    return tokens_head;
+  } else {
+    linked_list * new_head = malloc(sizeof(linked_list));
+    new_head->next = tokens_head;
+    new_head->t = t;
+    new_head->isfull = true;
+    return new_head;
+  }
+}
+
+// add to the end of a linked_list
+linked_list * queue(linked_list * tokens_head, token t) {
+  if (!tokens_head->isfull) { // if still empty list
+      tokens_head->t = t;
+      tokens_head->isfull = true;
+      tokens_head->next = NULL;
+      return tokens_head;
+  }
+  linked_list * current_token = tokens_head;
+  while (true) {
+    if (current_token->next == NULL) {
+      current_token->next = malloc(sizeof(linked_list));
+      current_token->next->isfull = true;
+      current_token->next->next = NULL;
+      current_token->next->t = t;
+      break;
+    } else {
+      current_token = current_token->next;
+    }
+  }
+  return tokens_head;
+}
+
+// remove and return the first element in the linked list
+token * pop_head(linked_list * tokens_head) {
+  if (tokens_head->isfull) {
+    token * t = malloc(sizeof(token));
+    *t = tokens_head->t;
+    if (tokens_head->next != NULL) {
+      tokens_head->isfull = tokens_head->next->isfull;
+      tokens_head->t = tokens_head->next->t;
+      tokens_head->next = tokens_head->next->next;
+    } else {
+      tokens_head->isfull = false;
+      tokens_head->next = NULL;
+    }
+    return t;
+  } else {
+    return NULL;
+  }
+}
+
+linked_list * convert_rpn(linked_list * token_list) {
+
+  linked_list * output_queue = malloc(sizeof(linked_list));
+  output_queue->isfull = false;
+  output_queue->next = NULL;
+  linked_list * operator_stack = malloc(sizeof(linked_list));
+  operator_stack->isfull = false;
+  operator_stack->next = NULL;
+
+  linked_list current_token = *token_list;
+  while (true) {
+    if (current_token.t.is_operator) {
+      operator_stack = stack_push(operator_stack, current_token.t);
+    } else {
+      queue(output_queue, current_token.t);
+    }
+
+    // TODO: more processing to handle parens, operator precedence, etc.
+
+    if (current_token.next == NULL) {
+      token * t = NULL;
+      t = pop_head(operator_stack);
+      while (t != NULL) {
+        queue(output_queue, *t);
+        t = pop_head(operator_stack);
+      }
+      // pop off all operators into queue
+      break; // end of linked list
+    } else {
+      current_token = *current_token.next;
+    }
+  }
+
+  return output_queue;
+}
+
 // takes 3 pointers:
 //     last_answer to be used for chaining calculations
 //     memory to be used where keywoard 'memory' in calculation
@@ -215,7 +310,12 @@ bool process_expression(char expression[], const double * const last_answer, con
   print_linked_list(*tokens_head);
 
   
-  // TODO: - sub in last_answer and memory
+  // CONVERT TO RPN FORM
+  linked_list * rpn_tokens = convert_rpn(tokens_head);
+  print_linked_list(*rpn_tokens);
+
+  // EVALUATE EXPRESSION
+
   //       - parse and evaluate
   //       - save answer in `answer` if successful
   //       - return status
@@ -224,6 +324,7 @@ bool process_expression(char expression[], const double * const last_answer, con
   return true;
 
 }
+
 
 // returns the token added for convenience
 token add_token(linked_list * tokens_head, token t) {
