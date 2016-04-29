@@ -22,15 +22,19 @@
 #define LINE_BUFFER 128
 
 // all possible token types for expressions (supported operators, etc.)
+// the order of things here is crafted so that the following is true:
+// - all operators are > IS_OPERATOR
+// - unary operators are > IS_UNARY
+// - higher precedence equals higher value (ie. MULTIPLY > ADD)
 typedef enum {
   LITERAL,
-  IS_OPERATOR,
   LEFT_PARENS,
   RIGHT_PARENS,
-  MULTIPLY,
-  DIVIDE,
-  ADD,
+  IS_OPERATOR,
   MINUS,
+  ADD,
+  DIVIDE,
+  MULTIPLY,
   IS_UNARY,
   SQR,
   SQRT
@@ -252,6 +256,8 @@ token * pop_head(linked_list * tokens_head) {
   }
 }
 
+// takes a linked_list and returns a new linked list with the tokens now in RPN
+// returns NULL if failed
 linked_list * convert_rpn(const linked_list * const token_list) {
 
   linked_list * output_queue = malloc(sizeof(linked_list));
@@ -262,19 +268,49 @@ linked_list * convert_rpn(const linked_list * const token_list) {
   operator_stack->next = NULL;
 
   linked_list current_token = *token_list;
+  token * temptoken = NULL;
   while (true) {
     if (current_token.t.type >= IS_OPERATOR) {
+      while (operator_stack->isfull) {
+        if (current_token.t.type <= operator_stack->t.type) {
+          queue(output_queue, *pop_head(operator_stack));
+        } else {
+          break;
+        }
+      }
       stack_push(operator_stack, current_token.t);
+
+    } else if (current_token.t.type == LEFT_PARENS) {
+      stack_push(operator_stack, current_token.t);
+
+    } else if (current_token.t.type == RIGHT_PARENS) {
+      while (true) {
+        temptoken = pop_head(operator_stack);
+        if (temptoken == NULL) {
+          puts("Mismatched Parentheses!");
+          return NULL;
+        } else if (temptoken->type == LEFT_PARENS) {
+          break; // ignore
+        } else {
+          queue(output_queue, *temptoken);
+        }
+      }
+
     } else {
       queue(output_queue, current_token.t);
     }
 
     // TODO: more processing to handle parens, operator precedence, etc.
 
-    if (current_token.next == NULL) {
+    if (current_token.next == NULL) { // reached end - run off the remaining operators
       token * t = NULL;
       t = pop_head(operator_stack);
       while (t != NULL) {
+        // check for mismatched parentheses
+        if ((*t).type == LEFT_PARENS || (*t).type == RIGHT_PARENS) {
+          puts("Mismatched Parentheses!");
+          return NULL;
+        }
         queue(output_queue, *t);
         t = pop_head(operator_stack);
       }
@@ -285,6 +321,7 @@ linked_list * convert_rpn(const linked_list * const token_list) {
     }
   }
 
+  print_linked_list(*output_queue);
   return output_queue;
 }
 
@@ -322,6 +359,9 @@ bool process_expression(char expression[], const double * const last_answer, con
   
   // CONVERT TO RPN FORM
   linked_list * rpn_tokens = convert_rpn(tokens_head);
+  if (rpn_tokens == NULL) {
+    return false;
+  }
   /* print_linked_list(*rpn_tokens); */
 
   // EVALUATE EXPRESSION
@@ -536,10 +576,10 @@ bool evaluate_rpn(const linked_list * const rpn_tokens, double * const answer) {
           temp_answer = left->value / right->value;
           break;
         case SQR:
-          temp_answer = pow(left->value, 2);
+          temp_answer = pow(right->value, 2);
           break;
         case SQRT:
-          temp_answer = sqrt(left->value);
+          temp_answer = sqrt(right->value);
           break;
         default:
           return false; // this should never happen
