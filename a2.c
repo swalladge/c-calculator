@@ -31,6 +31,7 @@ typedef enum {
   DIVIDE,
   ADD,
   MINUS,
+  IS_UNARY,
   SQR,
   SQRT
 } token_type;
@@ -503,24 +504,51 @@ bool evaluate_rpn(const linked_list * const rpn_tokens, double * const answer) {
   linked_list * answer_stack = malloc(sizeof(linked_list));
 
   linked_list current_token = *rpn_tokens;
+  token_type type;
   while (true) {
-    if (current_token.t.type >= IS_OPERATOR) {
-      printf("answer stack: ");
-      print_linked_list(*answer_stack);
-      left = pop_head(answer_stack);
+    type = current_token.t.type;
+
+    if (type >= IS_OPERATOR) {
+      // get values
       right = pop_head(answer_stack);
-      printf("found operator. left = %p, right = %p\n", left, right);
-      // check nulls
-      if (current_token.t.type == ADD) {
-        temp_answer = left->value + right->value;
-      } else {
-        // other operators
+      if (right == NULL) {
+        return false;
       }
+      if (type < IS_UNARY) { // get a second value if not a unary operator
+        left = pop_head(answer_stack);
+        if (left == NULL) {
+          return false;
+        }
+      }
+
+      // check type of token and perform operation as required
+      switch (type) {
+        case ADD:
+          temp_answer = left->value + right->value;
+          break;
+        case MINUS:
+          temp_answer = left->value - right->value;
+          break;
+        case MULTIPLY:
+          temp_answer = left->value * right->value;
+          break;
+        case DIVIDE:
+          temp_answer = left->value / right->value;
+          break;
+        case SQR:
+          temp_answer = pow(left->value, 2);
+          break;
+        case SQRT:
+          temp_answer = sqrt(left->value);
+          break;
+        default:
+          return false; // this should never happen
+      }
+
       stack_push(answer_stack, (token) {LITERAL, temp_answer});
-    } else {
-      printf("pushing %f - new answerstack: ", current_token.t.value);
+
+    } else { // not an operator - push to answer_stack
       stack_push(answer_stack, current_token.t);
-      print_linked_list(*answer_stack);
     }
 
     if (current_token.next == NULL) {
@@ -530,12 +558,14 @@ bool evaluate_rpn(const linked_list * const rpn_tokens, double * const answer) {
     }
   }
 
-  // check if answerstack only got one token
-
   token * final = pop_head(answer_stack);
+
+  // make sure no more elements in the answer stack and that we have a final answer
+  if (final == NULL || answer_stack->next != NULL || answer_stack->isfull) {
+    return false;
+  }
   
   *answer = final->value;
-  /* *answer = 42; */
 
   return true;
 
