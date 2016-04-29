@@ -49,6 +49,7 @@ typedef struct linked_list {
   struct linked_list * next;
 } linked_list;
 
+
 // declare functions
 int main(void);
 void display_help(void);
@@ -56,6 +57,7 @@ bool process_expression(char expression[], const double * const last_answer, con
 linked_list * tokenize(char expression[]);
 char * strip(const char * str);
 token add_token(linked_list * tokens_head, token t);
+void print_linked_list(linked_list tokens_head);
 
 
 
@@ -208,6 +210,7 @@ bool process_expression(char expression[], const double * const last_answer, con
 
 }
 
+// returns the token added for convenience
 token add_token(linked_list * tokens_head, token t) {
   /* printf("found token: %d\n", t.type); */
   
@@ -227,6 +230,8 @@ token add_token(linked_list * tokens_head, token t) {
   return t;
 }
 
+// splits the expression into tokens (a makeshift linked list structure)
+// returns a pointer to the list, or NULL if tokenizing failed
 linked_list * tokenize(char exp[]) {
 
   linked_list * tokens_head = malloc(sizeof(linked_list));
@@ -239,14 +244,19 @@ linked_list * tokenize(char exp[]) {
   size_t i = 0;
   size_t len = strlen(exp);
   token previous = {LITERAL, true, 0};
+  bool grab_number = false;
   while (i < len) {
     /* printf("exp[i]: %c\n", exp[i]); */
     switch (exp[i]) {
       case ' ':
         break;
+      // for + and -, check if previous token was an operator or not
+      //  - if was operator, then assume it begins a positive/negative number
+      //  - otherwise should be operator
       case '+':;
         if (previous.is_operator) {
           // parse number
+          grab_number = true;
         } else {
           previous = add_token(tokens_head, (token) {ADD, true, 0});
         }
@@ -254,6 +264,7 @@ linked_list * tokenize(char exp[]) {
       case '-':
         if (previous.is_operator) {
           // parse number (since number can begin with -)
+          grab_number = true;
         } else {
           previous = add_token(tokens_head, (token) {MINUS, true, 0});
         }
@@ -277,7 +288,7 @@ linked_list * tokenize(char exp[]) {
         previous = add_token(tokens_head, (token) {RIGHT_PARENS, true, 0});
         break;
       default:
-        previous.is_operator = false;
+        /* previous.is_operator = false; */
         if (isalpha(exp[i])) {
           // parse memory/ans/otherkeywords
           if (strlen(&exp[i]) >= 6 && strncmp("memory", &exp[i], 6) == 0) {
@@ -291,20 +302,25 @@ linked_list * tokenize(char exp[]) {
             return NULL;
           }
 
-        } else if (isdigit(exp[i]) || exp[i] == '.') { // allow begin with '.'
-          // parse number
-          double value = 0;
-          int l = 0;
-          sscanf(&exp[i], "%lf%n", &value, &l);
-          previous = add_token(tokens_head, (token) {LITERAL, false, value});
-          /* printf("value: %f\n", value); */
-          i = i + (l-1);
+        } else if (isdigit(exp[i]) || (exp[i] == '.' && isdigit(exp[i+1]))) { // allow begin with '.'
+          grab_number = true; // parse number
         } else {
-          // unrecognized!
           return NULL;
         }
         break;
     }
+    if (grab_number) { // this check down here to enable handling + or - in different ways
+      grab_number = false;
+      double value = 0;
+      int l = 0;
+      sscanf(&exp[i], "%lf%n", &value, &l);
+      if (l == 0) {
+        return NULL;
+      }
+      previous = add_token(tokens_head, (token) {LITERAL, false, value});
+      i = i + (l-1);
+    }
+
     ++i;
   }
 
