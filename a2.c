@@ -49,13 +49,18 @@ typedef struct linked_list {
 
 
 // declare functions
-int main(void);
-void display_help(void);
-bool process_expression(char expression[], const double * const last_answer, const double * const memory, double * const answer);
-linked_list * tokenize(char exp[], const double * const last_answer, const double * const memory);
-char * strip(const char * str);
 token add_token(linked_list * tokens_head, token t);
+linked_list * convert_rpn(const linked_list * const token_list);
+void display_help(void);
+bool evaluate_rpn(const linked_list * const rpn_tokens, double * const answer);
+int main(void);
+token * pop_head(linked_list * tokens_head);
 void print_linked_list(linked_list tokens_head);
+bool process_expression(char expression[], const double * const last_answer, const double * const memory, double * const answer);
+linked_list * queue(linked_list * tokens_head, token t);
+char * strip(const char * str);
+linked_list * tokenize(char exp[], const double * const last_answer, const double * const memory);
+linked_list * stack_push(linked_list * tokens_head, token t);
 
 
 
@@ -240,7 +245,7 @@ token * pop_head(linked_list * tokens_head) {
   }
 }
 
-linked_list * convert_rpn(linked_list * token_list) {
+linked_list * convert_rpn(const linked_list * const token_list) {
 
   linked_list * output_queue = malloc(sizeof(linked_list));
   output_queue->isfull = false;
@@ -283,8 +288,6 @@ linked_list * convert_rpn(linked_list * token_list) {
 // returns true if successful calculation
 bool process_expression(char expression[], const double * const last_answer, const double * const memory, double * const answer) {
 
-  double a = time(NULL); // placeholder for testing
-
   // TOKENIZE
   bool last = false;
   if (last_answer != NULL) {
@@ -295,7 +298,7 @@ bool process_expression(char expression[], const double * const last_answer, con
     puts("Invalid expression!");
     return false;
   }
-  print_linked_list(*tokens_head);
+  /* print_linked_list(*tokens_head); */
 
 
   // CHAIN TO LAST ANSWER IF NEEDED
@@ -307,21 +310,17 @@ bool process_expression(char expression[], const double * const last_answer, con
     new_tokens_head->next = tokens_head;
     tokens_head = new_tokens_head;
   }
-  print_linked_list(*tokens_head);
+  /* print_linked_list(*tokens_head); */
 
   
   // CONVERT TO RPN FORM
   linked_list * rpn_tokens = convert_rpn(tokens_head);
-  print_linked_list(*rpn_tokens);
+  /* print_linked_list(*rpn_tokens); */
 
   // EVALUATE EXPRESSION
+  bool result = evaluate_rpn(rpn_tokens, answer);
 
-  //       - parse and evaluate
-  //       - save answer in `answer` if successful
-  //       - return status
-
-  *answer = a;
-  return true;
+  return result;
 
 }
 
@@ -483,4 +482,17 @@ char * strip(const char * s) {
   out[out_size] = 0;
 
   return out;
+}
+
+
+// evaluates a linked list of tokens in rpn/postfix order
+// sets answer to the result of the evaluation, returns whether successful or not
+bool evaluate_rpn(const linked_list * const rpn_tokens, double * const answer) {
+
+  // TODO
+
+  *answer = 42;
+
+  return true;
+
 }
