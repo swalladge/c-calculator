@@ -187,23 +187,29 @@ void print_linked_list(linked_list tokens_head) {
 }
 
 
-// add to the head of a linked_list
+// add to the head of a linked_list 
+// - also returns pointer to head (although pointer does not change) for convenience
 linked_list * stack_push(linked_list * tokens_head, token t) {
   if (!tokens_head->isfull) { // if not full - ie. new empty list
-    tokens_head->t = t;
-    tokens_head->isfull = true;
     tokens_head->next = NULL;
-    return tokens_head;
   } else {
-    linked_list * new_head = malloc(sizeof(linked_list));
-    new_head->next = tokens_head;
-    new_head->t = t;
-    new_head->isfull = true;
-    return new_head;
+    // move head data to new node, which is inserted between new pushed data and original head.next
+    // [<tokens_head with new data>, <new_next with old tokens_head data>, <old tokens_head.next>...]
+    linked_list * new_next = malloc(sizeof(linked_list));
+    new_next->next = tokens_head->next;
+    new_next->t = tokens_head->t;
+    new_next->isfull = tokens_head->isfull;
+
+    tokens_head->next = new_next;
   }
+
+  tokens_head->t = t;
+  tokens_head->isfull = true;
+  return tokens_head;
 }
 
 // add to the end of a linked_list
+// returns pointer to the head for convenience (same pointer as in arguments)
 linked_list * queue(linked_list * tokens_head, token t) {
   if (!tokens_head->isfull) { // if still empty list
       tokens_head->t = t;
@@ -257,7 +263,7 @@ linked_list * convert_rpn(const linked_list * const token_list) {
   linked_list current_token = *token_list;
   while (true) {
     if (current_token.t.type >= IS_OPERATOR) {
-      operator_stack = stack_push(operator_stack, current_token.t);
+      stack_push(operator_stack, current_token.t);
     } else {
       queue(output_queue, current_token.t);
     }
@@ -510,10 +516,10 @@ bool evaluate_rpn(const linked_list * const rpn_tokens, double * const answer) {
       } else {
         // other operators
       }
-      answer_stack = stack_push(answer_stack, (token) {LITERAL, temp_answer});
+      stack_push(answer_stack, (token) {LITERAL, temp_answer});
     } else {
       printf("pushing %f - new answerstack: ", current_token.t.value);
-      answer_stack = stack_push(answer_stack, current_token.t);
+      stack_push(answer_stack, current_token.t);
       print_linked_list(*answer_stack);
     }
 
