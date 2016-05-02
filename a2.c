@@ -89,7 +89,7 @@ int main(void) {
 
   while (running) {
 
-    printf("%s", "exp>> ");
+    printf("exp>> ");
     fgets(line, LINE_BUFFER, stdin);
     command = strip(line); // strip whitespace
 
@@ -110,14 +110,14 @@ int main(void) {
 
     } else if (strcmp(command, "memory") == 0) {
       if (memory != NULL) {
-        printf("memory = %.6lf\n", *memory);
+        printf("memory = %.6f\n", *memory);
       } else {
         puts("Memory is empty!");
       }
 
     } else if (strcmp(command, "ans") == 0) {
       if (last_answer != NULL) {
-        printf("ans = %.6lf\n", *last_answer);
+        printf("ans = %.6f\n", *last_answer);
       } else {
         puts("No previous calculations!");
       }
@@ -130,7 +130,7 @@ int main(void) {
           memory = malloc(sizeof(double));
         }
         *memory = *last_answer;
-        printf("%.6lf stored to memory\n", *memory);
+        printf("%.6f stored to memory\n", *memory);
       }
 
     } else if (strcmp(command, "reset") == 0) {
@@ -145,7 +145,7 @@ int main(void) {
         last_answer = &answer;
         /* printf("ans = %.*lg\n", (int) log10(answer)+6, answer); */
         // TODO: strip trailing zeros
-        printf("ans = %.6lf\n", answer);
+        printf("ans = %.6f\n", answer);
       }
     }
 
@@ -372,7 +372,7 @@ linked_list * tokenize(char exp[], const double * const last_answer,
       grab_number = false;
       double value = 0;
       int l = 0;
-      sscanf(&exp[i], "%lf%n", &value, &l);
+      sscanf(&exp[i], "%lf%n", &value, &l); // TODO: check security of %n
       if (l == 0) {
         return NULL;
       }
@@ -539,23 +539,9 @@ token * pop_head(linked_list * tokens_head) {
 }
 
 // returns the token added for convenience
-// TODO: refactor this - this is same as queue()?
+// - mainly just wrapper around queue()
 token add_token(linked_list * tokens_head, token t) {
-  /* printf("found token: %d\n", t.type); */
-
-  linked_list * current_token = tokens_head;
-  while (true) {
-    if (current_token->isfull) {
-      if (current_token->next == NULL) {
-        current_token->next = malloc(sizeof(linked_list));
-      }
-      current_token = current_token->next;
-    } else {
-      current_token->t = t;
-      current_token->isfull = true;
-      break;
-    }
-  }
+  queue(tokens_head, t);
   return t;
 }
 
@@ -601,7 +587,7 @@ char * strip(const char * s) {
 // print out a linked_list of tokens - for debugging purposes
 void print_linked_list(linked_list tokens_head) {
   linked_list current_token = tokens_head;
-  printf("%s", "[");
+  printf("[");
   while (true) {
     if (current_token.t.type >= IS_OPERATOR) {
       printf("op %d", current_token.t.type);
@@ -613,7 +599,7 @@ void print_linked_list(linked_list tokens_head) {
       puts("]");
       break; // end of linked list
     } else {
-      printf("%s", ", ");
+      printf(", ");
       current_token = *current_token.next;
     }
   }
