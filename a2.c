@@ -312,7 +312,7 @@ linked_list * tokenize(char exp[], const double * const last_answer,
       //  - if was operator, then assume it begins a positive/negative number
       //  - otherwise should be operator
       case '+':;
-        if (previous.type >= IS_OPERATOR && previous.type < IS_UNARY) {
+        if (previous.type >= LITERAL && previous.type < IS_UNARY) {
           // parse number
           grab_number = true;
         } else {
@@ -320,7 +320,7 @@ linked_list * tokenize(char exp[], const double * const last_answer,
         }
         break;
       case '-':
-        if (previous.type >= IS_OPERATOR && previous.type < IS_UNARY) {
+        if (previous.type >= LITERAL && previous.type < IS_UNARY) {
           // parse number (since number can begin with -)
           grab_number = true;
         } else {
