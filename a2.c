@@ -8,6 +8,7 @@
 // TODO: add comments where comments lacking
 // TODO: (maybe) split validation/errorchecking and tokenizing
 // TODO: free memory!
+// INPROGRESS: refactoring tokenize, convert_rpn, and eval rpn to have better error handling
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,9 +32,10 @@
 // - unary operators are > IS_UNARY
 // - higher precedence equals higher value (ie. MULTIPLY > ADD)
 typedef enum {
+  NOTHING,
   LITERAL,       // literal value (a number)
   RIGHT_PARENS,
-  CHAIN,         // term deliminators < this
+  END_TERM,         // term deliminators < this
   LEFT_PARENS,
   IS_OPERATOR,   // math operators > this
   MINUS,
@@ -238,6 +240,7 @@ linked_list * convert_rpn(const linked_list * const token_list) {
 
   linked_list current_token = *token_list;
   token * temptoken = NULL;
+  token_type last_type = NOTHING;
   while (true) {
     if (current_token.t.type >= IS_OPERATOR) {
       while (operator_stack->isfull) {
@@ -247,10 +250,12 @@ linked_list * convert_rpn(const linked_list * const token_list) {
           break;
         }
       }
+      last_type = IS_OPERATOR;
       stack_push(operator_stack, current_token.t);
 
     } else if (current_token.t.type == LEFT_PARENS) {
       stack_push(operator_stack, current_token.t);
+      last_type = LEFT_PARENS;
 
     } else if (current_token.t.type == RIGHT_PARENS) {
       while (true) {
@@ -259,14 +264,25 @@ linked_list * convert_rpn(const linked_list * const token_list) {
           puts("Mismatched parentheses!");
           return NULL;
         } else if (temptoken->type == LEFT_PARENS) {
-          break; // ignore
+          if (last_type == LEFT_PARENS) {
+            puts("Empty parentheses!");
+            return NULL;
+          }
+          break;
         } else {
           queue(output_queue, *temptoken);
+          last_type = IS_OPERATOR;
         }
       }
+      last_type = RIGHT_PARENS;
 
     } else {
+      if (last_type <= END_TERM && last_type > NOTHING) {
+        puts("Missing operator!");
+        return NULL;
+      }
       queue(output_queue, current_token.t);
+      last_type = LITERAL;
     }
 
 
@@ -305,43 +321,51 @@ linked_list * tokenize(char exp[], const double * const last_answer,
 
   /* printf("expression: %s\n", exp); */
 
+  bool first = true; // true while at first token
+  token previous;
+
+  // insert a token if there was a last answer,
+  //  and the first thing is an operator.
+  if (last_answer != NULL) {
+    switch (exp[0]) {
+      case '-':
+      case '+':
+      case '*':
+      case '/':
+      case '^':
+      case '#':
+        previous = add_token(tokens_head, (token) {LITERAL, *last_answer});
+        first = false;
+        break;
+      /* default: */
+      /*   // nothing */
+    }
+  }
+
   size_t i = 0;
   size_t len = strlen(exp);
-  bool first = true; // true while at first token
-
-  // setup a dummy previous token to
-  //  decide how to handle expressions beginning with + or -
-  //  easier and more efficient than an if block in each 'case'
-  token previous;
-  if (last_answer != NULL) {
-    previous.type = LITERAL;
-  } else {
-    previous.type = IS_OPERATOR;
-  }
   bool grab_number = false;
+
   while (i < len) {
     /* printf("exp[i]: %c\n", exp[i]); */
     switch (exp[i]) {
       case ' ':
         break;
-      // for + and -, check if previous token was an operator or not
-      //  - if was a binary operator, then assume it begins a signed number
-      //  - otherwise should be operator
+      // for + and -, check if previous token was the end of a term
+      //  - (right parenthesis or number, or unary operator)
       case '+':
         // uses enum ordering to matches correct types
-        if (previous.type >= CHAIN && previous.type < IS_UNARY) {
-          // parse number
-          grab_number = true;
-        } else {
+        if (!first && (previous.type < END_TERM || previous.type > IS_UNARY)) {
           previous = add_token(tokens_head, (token) {ADD, 0});
+        } else {
+          grab_number = true;
         }
         break;
       case '-':
-        if (previous.type >= CHAIN && previous.type < IS_UNARY) {
-          // parse number (since number can begin with -)
-          grab_number = true;
-        } else {
+        if (!first && (previous.type < END_TERM || previous.type > IS_UNARY)) {
           previous = add_token(tokens_head, (token) {MINUS, 0});
+        } else {
+          grab_number = true;
         }
         break;
       case '*':
@@ -357,17 +381,9 @@ linked_list * tokenize(char exp[], const double * const last_answer,
         previous = add_token(tokens_head, (token) {SQRT, 0});
         break;
       case '(':
-        if (previous.type < CHAIN && !first) {
-          puts("Missing operator!");
-          return NULL;
-        }
         previous = add_token(tokens_head, (token) {LEFT_PARENS, 0});
         break;
       case ')':
-        if (previous.type == LEFT_PARENS) {
-          puts("Empty parentheses!");
-          return NULL;
-        }
         previous = add_token(tokens_head, (token) {RIGHT_PARENS, 0});
         break;
       default:
@@ -397,10 +413,6 @@ linked_list * tokenize(char exp[], const double * const last_answer,
         break;
     }
     if (grab_number) { // this is here to enable different handling of + and -
-      if (previous.type < CHAIN && !first) {
-        puts("Missing operator!");
-        return NULL;
-      }
       grab_number = false;
       double value = 0;
       int l = 0;
