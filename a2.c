@@ -5,6 +5,10 @@
  * Tested with GNU gcc 5.3.0 (TODO: and Visual Studio 2015 compiler)
  */
 
+// TODO: add comments where comments lacking
+// TODO: (maybe) split validation/errorchecking and tokenizing
+// TODO: free memory!
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -83,7 +87,7 @@ int main(void) {
   bool running = true;
   char line[LINE_BUFFER];
   char * command = NULL;
-  double * memory = NULL; //malloc(sizeof(double)); // &memory_value;
+  double * memory = NULL;
   double * last_answer = NULL; // &last_value;
   double answer = 0;
   bool calc_success = true;
@@ -307,6 +311,7 @@ linked_list * tokenize(char exp[], const double * const last_answer,
 
   // setup a dummy previous token to
   //  decide how to handle expressions beginning with + or -
+  //  easier and more efficient than an if block in each 'case'
   token previous;
   if (last_answer != NULL) {
     previous.type = LITERAL;
@@ -392,7 +397,7 @@ linked_list * tokenize(char exp[], const double * const last_answer,
         break;
     }
     if (grab_number) { // this is here to enable different handling of + and -
-      if (previous.type < CHAIN) {
+      if (previous.type < CHAIN && !first) {
         puts("Missing operator!");
         return NULL;
       }
