@@ -303,6 +303,7 @@ linked_list * tokenize(char exp[], const double * const last_answer,
 
   size_t i = 0;
   size_t len = strlen(exp);
+  bool first = true; // true while at first token
 
   // setup a dummy previous token to
   //  decide how to handle expressions beginning with + or -
@@ -351,7 +352,7 @@ linked_list * tokenize(char exp[], const double * const last_answer,
         previous = add_token(tokens_head, (token) {SQRT, 0});
         break;
       case '(':
-        if (previous.type < CHAIN) {
+        if (previous.type < CHAIN && !first) {
           puts("Missing operator!");
           return NULL;
         }
@@ -407,6 +408,7 @@ linked_list * tokenize(char exp[], const double * const last_answer,
     }
 
     ++i;
+    first = false;
   }
 
 
