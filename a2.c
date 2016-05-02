@@ -87,8 +87,11 @@ int main(void) {
   double * last_answer = NULL; // &last_value;
   double answer = 0;
   bool calc_success = true;
+  unsigned int decimals = 0;
 
   while (running) {
+
+    decimals = 6;
 
     printf("exp>> ");
     fgets(line, LINE_BUFFER, stdin);
@@ -111,14 +114,20 @@ int main(void) {
 
     } else if (strcmp(command, "memory") == 0) {
       if (memory != NULL) {
-        printf("memory = %.6f\n", *memory);
+        if (*memory == floor(*memory)) {
+          decimals = 0;
+        }
+        printf("memory = %.*f\n", decimals, *memory);
       } else {
         puts("Memory is empty!");
       }
 
     } else if (strcmp(command, "ans") == 0) {
       if (last_answer != NULL) {
-        printf("ans = %.6f\n", *last_answer);
+        if (*last_answer == floor(*last_answer)) {
+          decimals = 0;
+        }
+        printf("ans = %.*f\n", decimals, *last_answer);
       } else {
         puts("No previous calculations!");
       }
@@ -131,7 +140,10 @@ int main(void) {
           memory = malloc(sizeof(double));
         }
         *memory = *last_answer;
-        printf("%.6f stored to memory\n", *memory);
+        if (*memory == floor(*memory)) {
+          decimals = 0;
+        }
+        printf("%.*f stored to memory\n", decimals, *memory);
       }
 
     } else if (strcmp(command, "reset") == 0) {
@@ -144,9 +156,10 @@ int main(void) {
       calc_success = process_expression(command, last_answer, memory, &answer);
       if (calc_success) {
         last_answer = &answer;
-        /* printf("ans = %.*lg\n", (int) log10(answer)+6, answer); */
-        // TODO: strip trailing zeros
-        printf("ans = %.6f\n", answer);
+        if (answer == floor(answer)) {
+          decimals = 0;
+        }
+        printf("ans = %.*f\n", decimals, answer);
       }
     }
 
@@ -200,10 +213,9 @@ bool process_expression(char expression[], const double * const last_answer,
   // EVALUATE EXPRESSION
   bool result = evaluate_rpn(rpn_tokens, answer);
 
-  // expression eval/parse errors printed directly where error occurs
-  // if (!result) {
-  //   puts("Invalid expression!");
-  // }
+  if (!result) {
+    puts("Couldn't evaluation expression!");
+  }
   return result;
 
 }
@@ -338,9 +350,9 @@ linked_list * tokenize(char exp[], const double * const last_answer,
         previous = add_token(tokens_head, (token) {SQRT, 0});
         break;
       case '(':
-        if (previous.type == RIGHT_PARENS) {
-          add_token(tokens_head, (token) {MULTIPLY, 0});
-        }
+        /* if (previous.type == RIGHT_PARENS) { */
+        /*   add_token(tokens_head, (token) {MULTIPLY, 0}); */
+        /* } */
         previous = add_token(tokens_head, (token) {LEFT_PARENS, 0});
         break;
       case ')':
@@ -380,9 +392,8 @@ linked_list * tokenize(char exp[], const double * const last_answer,
       grab_number = false;
       double value = 0;
       int l = 0;
-      sscanf(&exp[i], "%lf%n", &value, &l);
-      if (l == 0) {
-        puts("Invalid number!");
+      if (sscanf(&exp[i], "%lf%n", &value, &l) != 1) {
+        puts("Invalid number format!");
         return NULL;
       }
       previous = add_token(tokens_head, (token) {LITERAL, value});
