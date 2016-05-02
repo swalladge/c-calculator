@@ -27,15 +27,16 @@
 // - unary operators are > IS_UNARY
 // - higher precedence equals higher value (ie. MULTIPLY > ADD)
 typedef enum {
-  LITERAL,
-  LEFT_PARENS,
+  LITERAL,       // literal value (a number)
   RIGHT_PARENS,
-  IS_OPERATOR,
+  CHAIN,         // term deliminators < this
+  LEFT_PARENS,
+  IS_OPERATOR,   // math operators > this
   MINUS,
   ADD,
   DIVIDE,
   MULTIPLY,
-  IS_UNARY,
+  IS_UNARY,      // unary operators > this
   SQR,
   SQRT
 } token_type;
@@ -294,7 +295,7 @@ linked_list * tokenize(char exp[], const double * const last_answer,
   size_t i = 0;
   size_t len = strlen(exp);
 
-  // setup a dummy previous token to 
+  // setup a dummy previous token to
   //  decide how to handle expressions beginning with + or -
   token previous;
   if (last_answer != NULL) {
@@ -309,10 +310,11 @@ linked_list * tokenize(char exp[], const double * const last_answer,
       case ' ':
         break;
       // for + and -, check if previous token was an operator or not
-      //  - if was operator, then assume it begins a positive/negative number
+      //  - if was a binary operator, then assume it begins a signed number
       //  - otherwise should be operator
-      case '+':;
-        if (previous.type >= LITERAL && previous.type < IS_UNARY) {
+      case '+':
+        // uses enum ordering to matches correct types
+        if (previous.type >= CHAIN && previous.type < IS_UNARY) {
           // parse number
           grab_number = true;
         } else {
@@ -320,7 +322,7 @@ linked_list * tokenize(char exp[], const double * const last_answer,
         }
         break;
       case '-':
-        if (previous.type >= LITERAL && previous.type < IS_UNARY) {
+        if (previous.type >= CHAIN && previous.type < IS_UNARY) {
           // parse number (since number can begin with -)
           grab_number = true;
         } else {
@@ -477,10 +479,10 @@ linked_list * stack_push(linked_list * tokens_head, token t) {
   if (!tokens_head->isfull) { // if not full - ie. new empty list
     tokens_head->next = NULL;
   } else {
-    // move head data to new node, 
+    // move head data to new node,
     //  which is inserted between new pushed data and original head.next
-    // [<tokens_head with new data>, 
-    //  <new_next with old tokens_head data>, 
+    // [<tokens_head with new data>,
+    //  <new_next with old tokens_head data>,
     //  <old tokens_head.next>...]
     linked_list * new_next = malloc(sizeof(linked_list));
     new_next->next = tokens_head->next;
