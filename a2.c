@@ -58,7 +58,7 @@ typedef struct linked_list {
 token add_token(linked_list * tokens_head, token t);
 linked_list * convert_rpn(const linked_list * const token_list);
 void display_help(void);
-bool evaluate_rpn(const linked_list * const rpn_tokens, double * const answer);
+double * evaluate_rpn(const linked_list * const rpn_tokens);
 int main(void);
 token * pop_head(linked_list * tokens_head);
 void print_linked_list(linked_list tokens_head);
@@ -87,11 +87,11 @@ int main(void) {
   double * last_answer = NULL; // &last_value;
   double answer = 0;
   bool calc_success = true;
-  unsigned int decimals = 0;
+  unsigned int decimals = 0; // storing number of decimal points to print
 
   while (running) {
 
-    decimals = 6;
+    decimals = 6; // set to 6 decimal points by default
 
     printf("exp>> ");
     fgets(line, LINE_BUFFER, stdin);
@@ -143,7 +143,7 @@ int main(void) {
         if (*memory == floor(*memory)) {
           decimals = 0;
         }
-        printf("%.*f stored to memory\n", decimals, *memory);
+        printf("Stored %.*f to memory.\n", decimals, *memory);
       }
 
     } else if (strcmp(command, "reset") == 0) {
@@ -211,13 +211,14 @@ bool process_expression(char expression[], const double * const last_answer,
   /* print_linked_list(*rpn_tokens); */
 
   // EVALUATE EXPRESSION
-  bool result = evaluate_rpn(rpn_tokens, answer);
+  double * returned_answer = evaluate_rpn(rpn_tokens);
 
-  if (!result) {
-    puts("Couldn't evaluation expression!");
+  if (returned_answer == NULL) {
+    return false;
   }
-  return result;
 
+  *answer = *returned_answer;
+  return true;
 }
 
 // takes a linked_list and returns a new linked list with the tokens now in RPN
@@ -350,9 +351,10 @@ linked_list * tokenize(char exp[], const double * const last_answer,
         previous = add_token(tokens_head, (token) {SQRT, 0});
         break;
       case '(':
-        /* if (previous.type == RIGHT_PARENS) { */
-        /*   add_token(tokens_head, (token) {MULTIPLY, 0}); */
-        /* } */
+        if (previous.type < CHAIN) {
+          puts("Missing operator!");
+          return NULL;
+        }
         previous = add_token(tokens_head, (token) {LEFT_PARENS, 0});
         break;
       case ')':
@@ -389,6 +391,10 @@ linked_list * tokenize(char exp[], const double * const last_answer,
         break;
     }
     if (grab_number) { // this is here to enable different handling of + and -
+      if (previous.type < CHAIN) {
+        puts("Missing operator!");
+        return NULL;
+      }
       grab_number = false;
       double value = 0;
       int l = 0;
@@ -410,12 +416,12 @@ linked_list * tokenize(char exp[], const double * const last_answer,
 
 
 // evaluates a linked list of tokens in rpn/postfix order
-// sets answer to the result of the evaluation, returns true if successful
-bool evaluate_rpn(const linked_list * const rpn_tokens, double * const answer) {
+// returns a pointer to the answer if successful, else null pointer
+double * evaluate_rpn(const linked_list * const rpn_tokens) {
 
   token * left = NULL;
   token * right = NULL;
-  double temp_answer;
+  double temp_answer = 0;
   linked_list * answer_stack = malloc(sizeof(linked_list));
 
   linked_list current_token = *rpn_tokens;
@@ -427,12 +433,14 @@ bool evaluate_rpn(const linked_list * const rpn_tokens, double * const answer) {
       // get values
       right = pop_head(answer_stack);
       if (right == NULL) {
-        return false;
+        puts("Missing number!");
+        return NULL;
       }
       if (type < IS_UNARY) { // get a second value if not a unary operator
         left = pop_head(answer_stack);
         if (left == NULL) {
-          return false;
+          puts("Missing number!");
+          return NULL;
         }
       }
 
@@ -464,8 +472,9 @@ bool evaluate_rpn(const linked_list * const rpn_tokens, double * const answer) {
           }
           temp_answer = sqrt(right->value);
           break;
-        default:
-          return false; // this should never happen
+        default: // this should never happen if tokenizer worked
+          puts("Encountered token with invalid type!");
+          return NULL;
       }
 
       stack_push(answer_stack, (token) {LITERAL, temp_answer});
@@ -485,13 +494,13 @@ bool evaluate_rpn(const linked_list * const rpn_tokens, double * const answer) {
 
   // make sure no more elements in the answer stack and we have a final answer
   if (final == NULL || answer_stack->next != NULL || answer_stack->isfull) {
-    return false;
+    puts("Too many numbers!");
+    return NULL;
   }
 
+  double * answer = malloc(sizeof(double));;
   *answer = final->value;
-
-  return true;
-
+  return answer;
 }
 
 
@@ -580,7 +589,7 @@ token add_token(linked_list * tokens_head, token t) {
 
 // strips whitespace from beginning and end of string
 // source for information on stripping whitespace from:
-// - http://stackoverflow.com/questions/122616/how-do-i-trim-leading-trailing-whitespace-in-a-standard-way
+// - http://stackoverflow.com/q/122616/
 char * strip(const char * s) {
   char * out;
 
@@ -636,19 +645,29 @@ void print_linked_list(linked_list tokens_head) {
 
 // prints help for operating the program
 void display_help(void) {
-  puts("COMMAND       FUNCTION");
-  puts("exit          Exits the program.");
-  puts("help          Displays this message.");
-  puts("memory        Displays memory value.");
-  puts("ans           Displays last answer value.");
-  puts("store         Saves last answer to memory.");
-  puts("reset         Wipes memory and last answer values.");
-  puts("");
-  puts("OPERATOR    DESCRIPTION    SYNTAX");
-  puts("+           addition       [a+b|+a]");
-  puts("-           subtraction    [a-b|-a]");
-  puts("*           multiplication [a+b|*a]");
-  puts("/           division       [a+b|/a]");
-  puts("^           square(x)      [a^|^]  ");
-  puts("#           squareroot(x)  [a#|#]  ");
+  puts("AVAILABLE COMMANDS\n"
+       "===============================================\n"
+       "COMMAND       FUNCTION\n"
+       "exit          Exits the program.\n"
+       "help          Displays this message.\n"
+       "memory        Displays memory value.\n"
+       "ans           Displays last answer value.\n"
+       "store         Saves last answer to memory.\n"
+       "reset         Reset to startup state.\n"
+       "\n"
+       "SUPPORTED FUNCTIONALITY\n"
+       "===============================================\n"
+       "OPERATOR    DESCRIPTION     SYNTAX\n"
+       "+           addition        a+b\n"
+       "-           subtraction     a-b\n"
+       "*           multiplication  a+b\n"
+       "/           division        a+b\n"
+       "^           square(a)       a^ \n"
+       "#           squareroot(a)   a# \n"
+       "( and )     parentheses     (a)\n"
+       "-----------------------------------------------\n"
+       "If expression begins with an operator,\n"
+       "  the previous answer will be operated on.\n"
+       "'ans' and 'memory' can be used in expressions.\n"
+       "===============================================");
 }
