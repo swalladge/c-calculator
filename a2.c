@@ -171,13 +171,8 @@ bool process_expression(char expression[], const double * const last_answer,
                         const double * const memory, double * const answer) {
 
   // TOKENIZE
-  bool last = false;
-  if (last_answer != NULL) {
-    last = true;
-  }
   linked_list * tokens_head = tokenize(expression, last_answer, memory);
   if (tokens_head == NULL) {
-    puts("Invalid expression!");
     return false;
   }
   /* print_linked_list(*tokens_head); */
@@ -205,9 +200,10 @@ bool process_expression(char expression[], const double * const last_answer,
   // EVALUATE EXPRESSION
   bool result = evaluate_rpn(rpn_tokens, answer);
 
-  if (!result) {
-    puts("Invalid expression!");
-  }
+  // expression eval/parse errors printed directly where error occurs
+  // if (!result) {
+  //   puts("Invalid expression!");
+  // }
   return result;
 
 }
@@ -243,7 +239,7 @@ linked_list * convert_rpn(const linked_list * const token_list) {
       while (true) {
         temptoken = pop_head(operator_stack);
         if (temptoken == NULL) {
-          puts("Mismatched Parentheses!");
+          puts("Mismatched parentheses!");
           return NULL;
         } else if (temptoken->type == LEFT_PARENS) {
           break; // ignore
@@ -263,7 +259,7 @@ linked_list * convert_rpn(const linked_list * const token_list) {
       while (t != NULL) {
         // check for mismatched parentheses
         if ((*t).type == LEFT_PARENS || (*t).type == RIGHT_PARENS) {
-          puts("Mismatched Parentheses!");
+          puts("Mismatched parentheses!");
           return NULL;
         }
         queue(output_queue, *t);
@@ -342,9 +338,16 @@ linked_list * tokenize(char exp[], const double * const last_answer,
         previous = add_token(tokens_head, (token) {SQRT, 0});
         break;
       case '(':
+        if (previous.type == RIGHT_PARENS) {
+          add_token(tokens_head, (token) {MULTIPLY, 0});
+        }
         previous = add_token(tokens_head, (token) {LEFT_PARENS, 0});
         break;
       case ')':
+        if (previous.type == LEFT_PARENS) {
+          puts("Empty parentheses!");
+          return NULL;
+        }
         previous = add_token(tokens_head, (token) {RIGHT_PARENS, 0});
         break;
       default:
@@ -360,12 +363,15 @@ linked_list * tokenize(char exp[], const double * const last_answer,
             i = i + 2;
           } else {
             // fail
+            puts("Unrecognized variable name!");
             return NULL;
           }
 
         } else if (isdigit(exp[i]) || (exp[i] == '.' && isdigit(exp[i+1]))) {
           grab_number = true; // tell it to parse number later
         } else {
+          /* printf("err>> %*s\n", 1+ (int) i, "^"); */
+          puts("Unrecognized character!");
           return NULL;
         }
         break;
@@ -374,8 +380,9 @@ linked_list * tokenize(char exp[], const double * const last_answer,
       grab_number = false;
       double value = 0;
       int l = 0;
-      sscanf(&exp[i], "%lf%n", &value, &l); // TODO: check security of %n
+      sscanf(&exp[i], "%lf%n", &value, &l);
       if (l == 0) {
+        puts("Invalid number!");
         return NULL;
       }
       previous = add_token(tokens_head, (token) {LITERAL, value});
@@ -430,12 +437,20 @@ bool evaluate_rpn(const linked_list * const rpn_tokens, double * const answer) {
           temp_answer = left->value * right->value;
           break;
         case DIVIDE:
+          if (right->value == 0) {
+            puts("Can't divide by zero!");
+            return NULL;
+          }
           temp_answer = left->value / right->value;
           break;
         case SQR:
           temp_answer = pow(right->value, 2);
           break;
         case SQRT:
+          if (right->value < 0) {
+            puts("Can't do square root of a negative number!");
+            return NULL;
+          }
           temp_answer = sqrt(right->value);
           break;
         default:
