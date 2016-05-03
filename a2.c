@@ -2,7 +2,7 @@
  * HIT365 Assignment 2 code
  * Copyright 2016 Samuel Walladge
  *
- * Tested with GNU gcc 5.3.0 (TODO: and Visual Studio 2015 compiler)
+ * Tested with GNU gcc 5.3.0 and Visual Studio 2015 compiler
  */
 
 
@@ -42,6 +42,11 @@ typedef enum token_type {
   SQR,
   SQRT
 } token_type;
+
+// list of operator precedences
+// - where prec[token_type] == precedence of the token_type
+// - zero precedence here means undefined (not an operator)
+const int precedence[] = {0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 0, 3, 3};
 
 // structure of a token for the expression parser
 typedef struct token {
@@ -258,7 +263,9 @@ linked_list * convert_rpn(const linked_list * const token_list) {
         return NULL;
       }
       while (operator_stack->isfull) {
-        if (current_token->t.type <= operator_stack->t.type) {
+        // check precedence for whether to pop off the stack or not
+        if (precedence[current_token->t.type]
+            <= precedence[operator_stack->t.type]) {
           temptoken = pop_head(operator_stack);
           queue(output_queue, *temptoken);
           free(temptoken);
@@ -677,7 +684,6 @@ char * strip(const char * s) {
   }
 
   if(*s == 0) { // was it all spaces?
-    puts("zero length string");
     out = malloc(sizeof(char));
     *out = '\0';
     return out;
