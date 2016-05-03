@@ -23,18 +23,18 @@
 #endif
 
 // set line buffer
-#define LINE_BUFFER 128
+#define LINE_BUFFER 256
 
 // all possible token types for expressions (supported operators, etc.)
 // the order of things here is crafted so that the following is true:
 // - all operators are > IS_OPERATOR
 // - unary operators are > IS_UNARY
 // - higher precedence equals higher value (ie. MULTIPLY > ADD)
-typedef enum {
-  NOTHING,
+typedef enum token_type {
+  NOTHING,       // placeholder
   LITERAL,       // literal value (a number)
   RIGHT_PARENS,
-  END_TERM,         // term deliminators < this
+  END_TERM,      // term deliminators < this
   LEFT_PARENS,
   IS_OPERATOR,   // math operators > this
   MINUS,
@@ -52,10 +52,11 @@ typedef struct token {
   double value;
 } token;
 
+// structure for a linked list of tokens
 typedef struct linked_list {
-  token t;
-  bool isfull;
-  struct linked_list * next;
+  token t;                    // the data
+  bool isfull;                // true if the data is set
+  struct linked_list * next;  // pointer to next object in the list
 } linked_list;
 
 
@@ -66,7 +67,7 @@ void display_help(void);
 double * evaluate_rpn(const linked_list * const rpn_tokens);
 int main(void);
 token * pop_head(linked_list * tokens_head);
-void print_linked_list(linked_list tokens_head);
+void print_linked_list(const linked_list * const tokens_head);
 bool process_expression(char expression[], const double * const last_answer,
                         const double * const memory,
                         double * const answer);
@@ -85,11 +86,12 @@ int main(void) {
 
   puts("Type \"help\" or enter a mathematical expression.");
 
+  // setup variables
   bool running = true;
   char line[LINE_BUFFER];
   char * command = NULL;
   double * memory = NULL;
-  double * last_answer = NULL; // &last_value;
+  double * last_answer = NULL;
   double answer = 0;
   bool calc_success = true;
   unsigned int decimals = 0; // storing number of decimal points to print
@@ -98,6 +100,7 @@ int main(void) {
 
     decimals = 6; // set to 6 decimal points by default
 
+    // prompt for a command/expression
     printf("exp>> ");
     fgets(line, LINE_BUFFER, stdin);
     command = strip(line); // strip whitespace
@@ -111,13 +114,13 @@ int main(void) {
       // ignore empty line
 
     } else if (strcmp(command, "help") == 0) {
-      display_help();
+      display_help(); // usage info
 
     } else if (strcmp(command, "exit") == 0) {
-      // shutdown
-      running = false;
+      running = false; // shutdown
 
     } else if (strcmp(command, "memory") == 0) {
+      // retrieve and display memory if available
       if (memory != NULL) {
         if (*memory == floor(*memory)) {
           decimals = 0;
@@ -128,6 +131,7 @@ int main(void) {
       }
 
     } else if (strcmp(command, "ans") == 0) {
+      // retrieve and display last answer if available
       if (last_answer != NULL) {
         if (*last_answer == floor(*last_answer)) {
           decimals = 0;
@@ -137,7 +141,8 @@ int main(void) {
         puts("No previous calculations!");
       }
 
-    } else if (strcmp(command, "store") == 0) { // save last answer in memory
+    } else if (strcmp(command, "store") == 0) {
+      // save last answer in memory
       if (last_answer == NULL) {
         puts("No previous answer to store!");
       } else {
@@ -152,13 +157,15 @@ int main(void) {
       }
 
     } else if (strcmp(command, "reset") == 0) {
+      // remove memory and last answer
       memory = NULL;
       last_answer = NULL;
       puts("Reset!");
 
     } else {
-      // treat as math expression
+      // treat as math expression - lets calculate!
       calc_success = process_expression(command, last_answer, memory, &answer);
+      // if was successful, store as last answer and print it
       if (calc_success) {
         last_answer = &answer;
         if (answer == floor(answer)) {
@@ -168,13 +175,14 @@ int main(void) {
       }
     }
 
-    puts(""); // just an extra line between commands
+    puts(""); // just an extra line between commands for neatness
 
   }
 
-
+  // exit the program
   return 0;
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // MAIN EXPRESSION PROCESSING FUNCTIONS
@@ -197,6 +205,7 @@ bool process_expression(char expression[], const double * const last_answer,
     return false;
   }
 
+  // print_linked_list(tokens_head);
 
   // CONVERT TO RPN FORM
   // returns either valid rpn linked list of tokens, or NULL
@@ -206,6 +215,7 @@ bool process_expression(char expression[], const double * const last_answer,
     return false;
   }
 
+  // print_linked_list(rpn_tokens);
 
   // EVALUATE EXPRESSION
   // returns the answer as a pointer to a double, or NULL if failed
@@ -221,12 +231,15 @@ bool process_expression(char expression[], const double * const last_answer,
 }
 
 // takes a linked_list and returns a new linked list with the tokens now in RPN
+// uses the shunting yard algorithm
 // returns NULL and prints error message if failed
 linked_list * convert_rpn(const linked_list * const token_list) {
 
+  // setup variables
   linked_list * output_queue = malloc(sizeof(linked_list));
   output_queue->isfull = false;
   output_queue->next = NULL;
+
   linked_list * operator_stack = malloc(sizeof(linked_list));
   operator_stack->isfull = false;
   operator_stack->next = NULL;
@@ -235,8 +248,11 @@ linked_list * convert_rpn(const linked_list * const token_list) {
   token * temptoken = NULL;
   token_type last_type = NOTHING;
   bool first = true;
+
+  // loop over each token in the list
   while (true) {
     if (current_token->t.type >= IS_OPERATOR) {
+      // handle operators
       if (current_token->t.type >= IS_UNARY && 
           ((last_type > END_TERM && last_type < IS_UNARY) || first)) {
         puts("Missing number before unary operator!");
@@ -253,10 +269,12 @@ linked_list * convert_rpn(const linked_list * const token_list) {
       stack_push(operator_stack, current_token->t);
 
     } else if (current_token->t.type == LEFT_PARENS) {
+      // remember when we find a left parens...
       stack_push(operator_stack, current_token->t);
       last_type = LEFT_PARENS;
 
     } else if (current_token->t.type == RIGHT_PARENS) {
+      // ... so we can do fancy stuff when there's a right parens
       while (true) {
         temptoken = pop_head(operator_stack);
         if (temptoken == NULL) {
@@ -276,16 +294,19 @@ linked_list * convert_rpn(const linked_list * const token_list) {
       last_type = RIGHT_PARENS;
 
     } else {
+      // handle numbers
       if (last_type <= END_TERM && !first) {
         puts("Missing operator!");
         return NULL;
       }
+      // numbers go straight to the output queue
       queue(output_queue, current_token->t);
       last_type = LITERAL;
     }
 
 
-    if (current_token->next == NULL) { // reached end - grab remaining operators
+    if (current_token->next == NULL) { 
+      // reached end - grab remaining operators and add to the queue
       token * t = NULL;
       t = pop_head(operator_stack);
       while (t != NULL) {
@@ -298,7 +319,7 @@ linked_list * convert_rpn(const linked_list * const token_list) {
         t = pop_head(operator_stack);
       }
       // pop off all operators into queue
-      break; // end of linked list
+      break; // end of list, leave the loop
     } else {
       current_token = current_token->next;
       if (first) {
@@ -316,15 +337,13 @@ linked_list * convert_rpn(const linked_list * const token_list) {
 linked_list * tokenize(char exp[], const double * const last_answer,
                        const double * const memory) {
 
+  // setup variables
   linked_list * tokens_head = malloc(sizeof(linked_list));
-
-  (*tokens_head).next = NULL;
-  (*tokens_head).isfull = false;
-
-  /* printf("expression: %s\n", exp); */
+  tokens_head->next = NULL;
+  tokens_head->isfull = false;
 
   bool first = true; // true while at first token
-  token previous;
+  token previous = {NOTHING, 0};
 
   // insert a token if there was a last answer,
   //  and the first thing is an operator.
@@ -339,8 +358,6 @@ linked_list * tokenize(char exp[], const double * const last_answer,
         previous = add_token(tokens_head, (token) {LITERAL, *last_answer});
         first = false;
         break;
-      /* default: */
-      /*   // nothing */
     }
   }
 
@@ -348,15 +365,15 @@ linked_list * tokenize(char exp[], const double * const last_answer,
   size_t len = strlen(exp);
   bool grab_number = false;
 
+  // loop over each character in the expression to build the list of tokens
   while (i < len) {
-    /* printf("exp[i]: %c\n", exp[i]); */
     switch (exp[i]) {
       case ' ':
-        break;
+        break; // ignore whitespace
       // for + and -, check if previous token was the end of a term
       //  - (right parenthesis or number, or unary operator)
       case '+':
-        // uses enum ordering to matches correct types
+        // uses enum ordering to match correct types
         if (!first && (previous.type < END_TERM || previous.type > IS_UNARY)) {
           previous = add_token(tokens_head, (token) {ADD, 0});
         } else {
@@ -400,7 +417,6 @@ linked_list * tokenize(char exp[], const double * const last_answer,
             previous = add_token(tokens_head, (token) {LITERAL, *last_answer});
             i = i + 2;
           } else {
-            // fail
             puts("Unrecognized variable name!");
             return NULL;
           }
@@ -408,7 +424,6 @@ linked_list * tokenize(char exp[], const double * const last_answer,
         } else if (isdigit(exp[i]) || (exp[i] == '.' && isdigit(exp[i+1]))) {
           grab_number = true; // tell it to parse number later
         } else {
-          /* printf("err>> %*s\n", 1+ (int) i, "^"); */
           puts("Unrecognized character!");
           return NULL;
         }
@@ -423,16 +438,14 @@ linked_list * tokenize(char exp[], const double * const last_answer,
         return NULL;
       }
       previous = add_token(tokens_head, (token) {LITERAL, value});
-      i = i + (l-1);
+      i = i + (l-1); // advance i by number of characters gobbled
     }
 
     ++i;
     first = false;
   }
 
-
   return tokens_head;
-
 }
 
 
@@ -440,32 +453,36 @@ linked_list * tokenize(char exp[], const double * const last_answer,
 // returns a pointer to the answer if successful, else null pointer
 double * evaluate_rpn(const linked_list * const rpn_tokens) {
 
+  // setup variables
   token * left = NULL;
   token * right = NULL;
   double temp_answer = 0;
   linked_list * answer_stack = malloc(sizeof(linked_list));
 
-  linked_list current_token = *rpn_tokens;
-  token_type type;
+  const linked_list * current_token = rpn_tokens;
+  token_type type = NOTHING;
+
+  // loop over each token in the list
   while (true) {
-    type = current_token.t.type;
+    type = current_token->t.type;
 
     if (type >= IS_OPERATOR) {
-      // get values
-      right = pop_head(answer_stack);
+      // pop values off the answer stack
+      right = pop_head(answer_stack); // get right first - stack is in reverse
       if (right == NULL) {
-        puts("Missing number to operator!");
+        puts("Missing number for operator!");
         return NULL;
       }
       if (type < IS_UNARY) { // get a second value if not a unary operator
         left = pop_head(answer_stack);
         if (left == NULL) {
-          puts("Missing number to operator!");
+          puts("Missing number for operator!");
           return NULL;
         }
       }
 
       // check type of token and perform operation as required
+      // pick up eval errors here too
       switch (type) {
         case ADD:
           temp_answer = left->value + right->value;
@@ -498,19 +515,22 @@ double * evaluate_rpn(const linked_list * const rpn_tokens) {
           return NULL;
       }
 
+      // push the result back on the stack
       stack_push(answer_stack, (token) {LITERAL, temp_answer});
 
-    } else { // not an operator - push to answer_stack
-      stack_push(answer_stack, current_token.t);
+    } else {
+      // not an operator - push to answer_stack
+      stack_push(answer_stack, current_token->t);
     }
 
-    if (current_token.next == NULL) {
+    if (current_token->next == NULL) {
       break; // end of linked list
     } else {
-      current_token = *current_token.next;
+      current_token = current_token->next;
     }
   }
 
+  // last token in the answer stack should be final result
   token * final = pop_head(answer_stack);
 
   // make sure no more elements in the answer stack and we have a final answer
@@ -519,6 +539,7 @@ double * evaluate_rpn(const linked_list * const rpn_tokens) {
     return NULL;
   }
 
+  // return a pointer to the answer!
   double * answer = malloc(sizeof(double));;
   *answer = final->value;
   return answer;
@@ -642,23 +663,23 @@ char * strip(const char * s) {
   return out;
 }
 
-// print out a linked_list of tokens - for debugging purposes
-void print_linked_list(linked_list tokens_head) {
-  linked_list current_token = tokens_head;
+// pretty print a linked_list of tokens - for debugging purposes
+void print_linked_list(const linked_list * const tokens_head) {
+  const linked_list * current_token = tokens_head;
   printf("[");
   while (true) {
-    if (current_token.t.type >= IS_OPERATOR) {
-      printf("op %d", current_token.t.type);
+    if (current_token->t.type >= IS_OPERATOR) {
+      printf("op %d", current_token->t.type);
     } else {
-      printf("val %.6f", current_token.t.value);
+      printf("val %.6f", current_token->t.value);
     }
 
-    if (current_token.next == NULL) {
+    if (current_token->next == NULL) {
       puts("]");
       break; // end of linked list
     } else {
       printf(", ");
-      current_token = *current_token.next;
+      current_token = current_token->next;
     }
   }
 }
@@ -692,3 +713,4 @@ void display_help(void) {
        "'ans' and 'memory' can be used in expressions.\n"
        "===============================================");
 }
+
