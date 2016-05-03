@@ -5,7 +5,7 @@
  * Tested with GNU gcc 5.3.0 (TODO: and Visual Studio 2015 compiler)
  */
 
-// TODO: free memory!
+// TODO: free memory - even if function returned with error!
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -63,6 +63,7 @@ token add_token(linked_list * tokens_head, token t);
 linked_list * convert_rpn(const linked_list * const token_list);
 void display_help(void);
 double * evaluate_rpn(const linked_list * const rpn_tokens);
+void free_linked_list(linked_list * thelist);
 int main(void);
 linked_list * new_linked_list(void);
 token * pop_head(linked_list * tokens_head);
@@ -157,9 +158,8 @@ int main(void) {
 
     } else if (strcmp(command, "reset") == 0) {
       // remove memory and last answer
-
-      memory = NULL;
-      last_answer = NULL;
+      free(memory); memory = NULL;
+      free(last_answer); last_answer = NULL;
       puts("Reset!");
 
     } else {
@@ -175,6 +175,7 @@ int main(void) {
       }
     }
 
+    free(command);
     puts(""); // just an extra line between commands for neatness
 
   }
@@ -211,6 +212,7 @@ bool process_expression(char expression[], const double * const last_answer,
   // returns either valid rpn linked list of tokens, or NULL
   // prints errors relating to parsing the tokens
   linked_list * rpn_tokens = convert_rpn(tokens_head);
+  free_linked_list(tokens_head);
   if (rpn_tokens == NULL) {
     return false;
   }
@@ -221,12 +223,14 @@ bool process_expression(char expression[], const double * const last_answer,
   // returns the answer as a pointer to a double, or NULL if failed
   // prints errors relating to evaluating the expression
   double * returned_answer = evaluate_rpn(rpn_tokens);
+  free_linked_list(rpn_tokens);
   if (returned_answer == NULL) {
     return false;
   }
 
   // finally save the answer and return success!
   *answer = *returned_answer;
+  free(returned_answer);
   return true;
 }
 
@@ -255,12 +259,14 @@ linked_list * convert_rpn(const linked_list * const token_list) {
       }
       while (operator_stack->isfull) {
         if (current_token->t.type <= operator_stack->t.type) {
-          queue(output_queue, *pop_head(operator_stack));
+          temptoken = pop_head(operator_stack);
+          queue(output_queue, *temptoken);
+          free(temptoken);
         } else {
           break;
         }
       }
-      last_type = IS_OPERATOR;
+      last_type = current_token->t.type;
       stack_push(operator_stack, current_token->t);
 
     } else if (current_token->t.type == LEFT_PARENS) {
@@ -276,6 +282,7 @@ linked_list * convert_rpn(const linked_list * const token_list) {
           puts("Mismatched parentheses!");
           return NULL;
         } else if (temptoken->type == LEFT_PARENS) {
+          free(temptoken);
           if (last_type == LEFT_PARENS) {
             puts("Empty parentheses!");
             return NULL;
@@ -283,6 +290,7 @@ linked_list * convert_rpn(const linked_list * const token_list) {
           break;
         } else {
           queue(output_queue, *temptoken);
+          free(temptoken);
           last_type = IS_OPERATOR;
         }
       }
@@ -311,6 +319,7 @@ linked_list * convert_rpn(const linked_list * const token_list) {
           return NULL;
         }
         queue(output_queue, *t);
+        free(t);
         t = pop_head(operator_stack);
       }
       // pop off all operators into queue
@@ -323,6 +332,7 @@ linked_list * convert_rpn(const linked_list * const token_list) {
     }
   }
 
+  free_linked_list(operator_stack);
   return output_queue;
 }
 
@@ -506,6 +516,8 @@ double * evaluate_rpn(const linked_list * const rpn_tokens) {
           return NULL;
       }
 
+      free(left); free(right);
+
       // push the result back on the stack
       stack_push(answer_stack, (token) {LITERAL, temp_answer});
 
@@ -527,12 +539,15 @@ double * evaluate_rpn(const linked_list * const rpn_tokens) {
   // make sure no more elements in the answer stack and we have a final answer
   if (final == NULL || answer_stack->next != NULL || answer_stack->isfull) {
     puts("Too many numbers! (missing operator?)");
+    free(final);
     return NULL;
   }
 
   // return a pointer to the answer!
   double * answer = malloc(sizeof(double));;
   *answer = final->value;
+  free_linked_list(answer_stack);
+  free(final);
   return answer;
 }
 
@@ -595,12 +610,13 @@ token * pop_head(linked_list * tokens_head) {
     token * t = malloc(sizeof(token));
     *t = tokens_head->t;
     if (tokens_head->next != NULL) {
+      linked_list * temp = tokens_head->next;
       tokens_head->isfull = tokens_head->next->isfull;
       tokens_head->t = tokens_head->next->t;
       tokens_head->next = tokens_head->next->next;
+      free(temp); // only want to free this part of the list
     } else {
       tokens_head->isfull = false;
-      tokens_head->next = NULL;
     }
     return t;
   } else {
@@ -625,6 +641,16 @@ linked_list * new_linked_list(void) {
   return l;
 }
 
+void free_linked_list(linked_list * thelist) {
+  linked_list * next = thelist;
+  linked_list * temp = NULL;
+  while (next != NULL) {
+    temp = next;
+    next = next->next;
+    free(temp);
+  }
+}
+      
 
 ////////////////////////////////////////////////////////////////////////////////
 // SMALLER HELPER FUNCTIONS
@@ -646,20 +672,16 @@ char * strip(const char * s) {
     return out;
   }
 
-  const char *end = s + strlen(s) - 1;
-  while(end > s && isspace(*end)) { // strip trailing spaces
+  const char * end = s + strlen(s) - 1;
+  while(isspace(*end)) { // strip trailing spaces
     --end;
   }
-  ++end;
-
-  int len = strlen(s);
-  // Set output size to minimum of trimmed string length and buffer size minus 1
-  size_t out_size = (end - s) < len-1 ? (end - s) : len-1;
 
   // Copy trimmed string and add null terminator
-  out = malloc(out_size * sizeof(char));
-  memcpy(out, s, out_size);
-  out[out_size] = 0;
+  size_t len = (end + 2) - s;
+  out = malloc(len * sizeof(char));
+  memcpy(out, s, len);
+  out[len-1] = 0;
 
   return out;
 }
