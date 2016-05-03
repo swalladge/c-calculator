@@ -5,8 +5,6 @@
  * Tested with GNU gcc 5.3.0 (TODO: and Visual Studio 2015 compiler)
  */
 
-// TODO: add comments where comments lacking
-// TODO: (maybe) split validation/errorchecking and tokenizing
 // TODO: free memory!
 
 #include <stdio.h>
@@ -66,6 +64,7 @@ linked_list * convert_rpn(const linked_list * const token_list);
 void display_help(void);
 double * evaluate_rpn(const linked_list * const rpn_tokens);
 int main(void);
+linked_list * new_linked_list(void);
 token * pop_head(linked_list * tokens_head);
 void print_linked_list(const linked_list * const tokens_head);
 bool process_expression(char expression[], const double * const last_answer,
@@ -158,6 +157,7 @@ int main(void) {
 
     } else if (strcmp(command, "reset") == 0) {
       // remove memory and last answer
+
       memory = NULL;
       last_answer = NULL;
       puts("Reset!");
@@ -236,13 +236,8 @@ bool process_expression(char expression[], const double * const last_answer,
 linked_list * convert_rpn(const linked_list * const token_list) {
 
   // setup variables
-  linked_list * output_queue = malloc(sizeof(linked_list));
-  output_queue->isfull = false;
-  output_queue->next = NULL;
-
-  linked_list * operator_stack = malloc(sizeof(linked_list));
-  operator_stack->isfull = false;
-  operator_stack->next = NULL;
+  linked_list * output_queue = new_linked_list();
+  linked_list * operator_stack = new_linked_list();
 
   const linked_list * current_token = token_list;
   token * temptoken = NULL;
@@ -338,10 +333,7 @@ linked_list * tokenize(char exp[], const double * const last_answer,
                        const double * const memory) {
 
   // setup variables
-  linked_list * tokens_head = malloc(sizeof(linked_list));
-  tokens_head->next = NULL;
-  tokens_head->isfull = false;
-
+  linked_list * tokens_head = new_linked_list();
   bool first = true; // true while at first token
   token previous = {NOTHING, 0};
 
@@ -457,8 +449,7 @@ double * evaluate_rpn(const linked_list * const rpn_tokens) {
   token * left = NULL;
   token * right = NULL;
   double temp_answer = 0;
-  linked_list * answer_stack = malloc(sizeof(linked_list));
-
+  linked_list * answer_stack = new_linked_list();
   const linked_list * current_token = rpn_tokens;
   token_type type = NOTHING;
 
@@ -622,6 +613,16 @@ token * pop_head(linked_list * tokens_head) {
 token add_token(linked_list * tokens_head, token t) {
   queue(tokens_head, t);
   return t;
+}
+
+// create a new empty linked list to use
+// returns a pointer to the new linked list
+linked_list * new_linked_list(void) {
+  linked_list * l = malloc(sizeof(linked_list));
+  l->isfull = false;
+  l->next = NULL;
+  l->t = (token) {NOTHING, 0};
+  return l;
 }
 
 
