@@ -1,8 +1,13 @@
 /**
- * HIT365 Assignment 2 code
+ * HIT365 Assignment 2 - calculator
  * Copyright 2016 Samuel Walladge
  *
- * Tested with GNU gcc 5.3.0 and Visual Studio 2015 compiler
+ * Tested with:
+ *   - GNU gcc 5.3.0
+ *   - Visual Studio 2015
+ *   - Visual Studio 2013
+ *
+ * Don't forget to link to math.h if compiler doesn't automatically.
  */
 
 
@@ -535,6 +540,7 @@ double * evaluate_rpn(const linked_list * const rpn_tokens) {
       }
 
       free(left); free(right);
+      left = NULL; right = NULL;
 
       // push the result back on the stack
       stack_push(answer_stack, (token) {LITERAL, temp_answer});
@@ -748,9 +754,12 @@ void display_help(void) {
        "#           squareroot(a)   a# \n"
        "( and )     parentheses     (a)\n"
        "-----------------------------------------------\n"
-       "If expression begins with an operator,\n"
-       "  the previous answer will be operated on.\n"
-       "'ans' and 'memory' can be used in expressions.\n"
+       "- If expression begins with an operator,\n"
+       "   the previous answer will be operated on.\n"
+       "- 'ans' and 'memory' can be used in expressions.\n"
+       "- Standard order of operations are respected.\n"
+       "-----------------------------------------------\n"
+       "Example: (-42+4*10)^ + memory\n"
        "===============================================");
 }
 
