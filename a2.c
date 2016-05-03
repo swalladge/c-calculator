@@ -8,7 +8,6 @@
 // TODO: add comments where comments lacking
 // TODO: (maybe) split validation/errorchecking and tokenizing
 // TODO: free memory!
-// INPROGRESS: refactoring tokenize, convert_rpn, and eval rpn to have better error handling
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -190,45 +189,39 @@ bool process_expression(char expression[], const double * const last_answer,
                         const double * const memory, double * const answer) {
 
   // TOKENIZE
+  // this function will return NULL, or a linked list of valid tokens
+  // automatically chains the last answer if valid
+  // prints errors if invalid tokens
   linked_list * tokens_head = tokenize(expression, last_answer, memory);
   if (tokens_head == NULL) {
     return false;
   }
-  /* print_linked_list(*tokens_head); */
-
-
-  // CHAIN TO LAST ANSWER IF NEEDED
-  if (tokens_head->t.type >= IS_OPERATOR && last_answer != NULL) {
-    linked_list new_head;
-    linked_list * new_tokens_head = &new_head;
-    new_tokens_head->isfull = true;
-    new_tokens_head->t = (token) {LITERAL, *last_answer};
-    new_tokens_head->next = tokens_head;
-    tokens_head = new_tokens_head;
-  }
-  /* print_linked_list(*tokens_head); */
 
 
   // CONVERT TO RPN FORM
+  // returns either valid rpn linked list of tokens, or NULL
+  // prints errors relating to parsing the tokens
   linked_list * rpn_tokens = convert_rpn(tokens_head);
   if (rpn_tokens == NULL) {
     return false;
   }
-  /* print_linked_list(*rpn_tokens); */
+
 
   // EVALUATE EXPRESSION
+  // returns the answer as a pointer to a double, or NULL if failed
+  // prints errors relating to evaluating the expression
   double * returned_answer = evaluate_rpn(rpn_tokens);
-
   if (returned_answer == NULL) {
     return false;
   }
 
+  // finally save the answer and return success!
   *answer = *returned_answer;
   return true;
 }
 
 // takes a linked_list and returns a new linked list with the tokens now in RPN
-// returns NULL if failed
+// returns NULL and prints error message if failed
 linked_list * convert_rpn(const linked_list * const token_list) {
 
   linked_list * output_queue = malloc(sizeof(linked_list));
@@ -238,26 +231,32 @@ linked_list * convert_rpn(const linked_list * const token_list) {
   operator_stack->isfull = false;
   operator_stack->next = NULL;
 
-  linked_list current_token = *token_list;
+  const linked_list * current_token = token_list;
   token * temptoken = NULL;
   token_type last_type = NOTHING;
+  bool first = true;
   while (true) {
-    if (current_token.t.type >= IS_OPERATOR) {
+    if (current_token->t.type >= IS_OPERATOR) {
+      if (current_token->t.type >= IS_UNARY && 
+          ((last_type > END_TERM && last_type < IS_UNARY) || first)) {
+        puts("Missing number before unary operator!");
+        return NULL;
+      }
       while (operator_stack->isfull) {
-        if (current_token.t.type <= operator_stack->t.type) {
+        if (current_token->t.type <= operator_stack->t.type) {
           queue(output_queue, *pop_head(operator_stack));
         } else {
           break;
         }
       }
       last_type = IS_OPERATOR;
-      stack_push(operator_stack, current_token.t);
+      stack_push(operator_stack, current_token->t);
 
-    } else if (current_token.t.type == LEFT_PARENS) {
-      stack_push(operator_stack, current_token.t);
+    } else if (current_token->t.type == LEFT_PARENS) {
+      stack_push(operator_stack, current_token->t);
       last_type = LEFT_PARENS;
 
-    } else if (current_token.t.type == RIGHT_PARENS) {
+    } else if (current_token->t.type == RIGHT_PARENS) {
       while (true) {
         temptoken = pop_head(operator_stack);
         if (temptoken == NULL) {
@@ -277,16 +276,16 @@ linked_list * convert_rpn(const linked_list * const token_list) {
       last_type = RIGHT_PARENS;
 
     } else {
-      if (last_type <= END_TERM && last_type > NOTHING) {
+      if (last_type <= END_TERM && !first) {
         puts("Missing operator!");
         return NULL;
       }
-      queue(output_queue, current_token.t);
+      queue(output_queue, current_token->t);
       last_type = LITERAL;
     }
 
 
-    if (current_token.next == NULL) { // reached end - grab remaining operators
+    if (current_token->next == NULL) { // reached end - grab remaining operators
       token * t = NULL;
       t = pop_head(operator_stack);
       while (t != NULL) {
@@ -301,7 +300,10 @@ linked_list * convert_rpn(const linked_list * const token_list) {
       // pop off all operators into queue
       break; // end of linked list
     } else {
-      current_token = *current_token.next;
+      current_token = current_token->next;
+      if (first) {
+        first = false;
+      }
     }
   }
 
@@ -452,13 +454,13 @@ double * evaluate_rpn(const linked_list * const rpn_tokens) {
       // get values
       right = pop_head(answer_stack);
       if (right == NULL) {
-        puts("Missing number!");
+        puts("Missing number to operator!");
         return NULL;
       }
       if (type < IS_UNARY) { // get a second value if not a unary operator
         left = pop_head(answer_stack);
         if (left == NULL) {
-          puts("Missing number!");
+          puts("Missing number to operator!");
           return NULL;
         }
       }
@@ -486,7 +488,7 @@ double * evaluate_rpn(const linked_list * const rpn_tokens) {
           break;
         case SQRT:
           if (right->value < 0) {
-            puts("Can't do square root of a negative number!");
+            puts("Square root of negative numbers not supported!");
             return NULL;
           }
           temp_answer = sqrt(right->value);
@@ -513,7 +515,7 @@ double * evaluate_rpn(const linked_list * const rpn_tokens) {
 
   // make sure no more elements in the answer stack and we have a final answer
   if (final == NULL || answer_stack->next != NULL || answer_stack->isfull) {
-    puts("Too many numbers!");
+    puts("Too many numbers! (missing operator?)");
     return NULL;
   }
 
