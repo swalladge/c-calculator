@@ -5,7 +5,6 @@
  * Tested with GNU gcc 5.3.0 (TODO: and Visual Studio 2015 compiler)
  */
 
-// TODO: free memory - even if function returned with error!
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -106,11 +105,11 @@ int main(void) {
     command = strip(line); // strip whitespace
 
     // convert to lowercase
-    for(size_t i=0; i<strlen(line); ++i) {
+    for(size_t i=0; i<strlen(command); ++i) {
       command[i] = tolower(command[i]);
     }
 
-    if (*command == 0) {
+    if (*command == '\0') {
       // ignore empty line
 
     } else if (strcmp(command, "help") == 0) {
@@ -159,7 +158,7 @@ int main(void) {
     } else if (strcmp(command, "reset") == 0) {
       // remove memory and last answer
       free(memory); memory = NULL;
-      free(last_answer); last_answer = NULL;
+      last_answer = NULL; // don't free this - points to variable `answer`
       puts("Reset!");
 
     } else {
@@ -255,6 +254,7 @@ linked_list * convert_rpn(const linked_list * const token_list) {
       if (current_token->t.type >= IS_UNARY && 
           ((last_type > END_TERM && last_type < IS_UNARY) || first)) {
         puts("Missing number before unary operator!");
+        free_linked_list(output_queue); free_linked_list(operator_stack);
         return NULL;
       }
       while (operator_stack->isfull) {
@@ -300,6 +300,7 @@ linked_list * convert_rpn(const linked_list * const token_list) {
       // handle numbers
       if (last_type <= END_TERM && !first) {
         puts("Missing operator!");
+        free_linked_list(output_queue); free_linked_list(operator_stack);
         return NULL;
       }
       // numbers go straight to the output queue
@@ -316,6 +317,8 @@ linked_list * convert_rpn(const linked_list * const token_list) {
         // check for mismatched parentheses
         if ((*t).type == LEFT_PARENS || (*t).type == RIGHT_PARENS) {
           puts("Mismatched parentheses!");
+          free(t);
+          free_linked_list(output_queue); free_linked_list(operator_stack);
           return NULL;
         }
         queue(output_queue, *t);
@@ -420,6 +423,7 @@ linked_list * tokenize(char exp[], const double * const last_answer,
             i = i + 2;
           } else {
             puts("Unrecognized variable name!");
+            free_linked_list(tokens_head);
             return NULL;
           }
 
@@ -427,6 +431,7 @@ linked_list * tokenize(char exp[], const double * const last_answer,
           grab_number = true; // tell it to parse number later
         } else {
           puts("Unrecognized character!");
+          free_linked_list(tokens_head);
           return NULL;
         }
         break;
@@ -437,6 +442,7 @@ linked_list * tokenize(char exp[], const double * const last_answer,
       int l = 0;
       if (sscanf(&exp[i], "%lf%n", &value, &l) != 1) {
         puts("Invalid number format!");
+        free_linked_list(tokens_head);
         return NULL;
       }
       previous = add_token(tokens_head, (token) {LITERAL, value});
@@ -472,12 +478,14 @@ double * evaluate_rpn(const linked_list * const rpn_tokens) {
       right = pop_head(answer_stack); // get right first - stack is in reverse
       if (right == NULL) {
         puts("Missing number for operator!");
+        free_linked_list(answer_stack);
         return NULL;
       }
       if (type < IS_UNARY) { // get a second value if not a unary operator
         left = pop_head(answer_stack);
         if (left == NULL) {
           puts("Missing number for operator!");
+          free(right); free_linked_list(answer_stack);
           return NULL;
         }
       }
@@ -497,6 +505,7 @@ double * evaluate_rpn(const linked_list * const rpn_tokens) {
         case DIVIDE:
           if (right->value == 0) {
             puts("Can't divide by zero!");
+            free(right); free(left); free_linked_list(answer_stack);
             return NULL;
           }
           temp_answer = left->value / right->value;
@@ -507,12 +516,14 @@ double * evaluate_rpn(const linked_list * const rpn_tokens) {
         case SQRT:
           if (right->value < 0) {
             puts("Square root of negative numbers not supported!");
+            free(right); free(left); free_linked_list(answer_stack);
             return NULL;
           }
           temp_answer = sqrt(right->value);
           break;
         default: // this should never happen if tokenizer worked
           puts("Encountered token with invalid type!");
+          free(right); free(left); free_linked_list(answer_stack);
           return NULL;
       }
 
@@ -539,15 +550,14 @@ double * evaluate_rpn(const linked_list * const rpn_tokens) {
   // make sure no more elements in the answer stack and we have a final answer
   if (final == NULL || answer_stack->next != NULL || answer_stack->isfull) {
     puts("Too many numbers! (missing operator?)");
-    free(final);
+    free(final); free_linked_list(answer_stack);
     return NULL;
   }
 
   // return a pointer to the answer!
   double * answer = malloc(sizeof(double));;
   *answer = final->value;
-  free_linked_list(answer_stack);
-  free(final);
+  free(final); free_linked_list(answer_stack);
   return answer;
 }
 
@@ -667,8 +677,9 @@ char * strip(const char * s) {
   }
 
   if(*s == 0) { // was it all spaces?
+    puts("zero length string");
     out = malloc(sizeof(char));
-    out[0] = '\0';
+    *out = '\0';
     return out;
   }
 
