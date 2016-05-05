@@ -96,7 +96,6 @@ int main(void) {
   puts("Type \"help\" or enter a mathematical expression.");
 
   // setup variables
-  bool running = true;
   char line[LINE_BUFFER];
   char * command = NULL;
   double * memory = NULL;
@@ -105,13 +104,16 @@ int main(void) {
   bool calc_success = true;
   unsigned int decimals = 0; // storing number of decimal points to print
 
-  while (running) {
+  while (true) {
 
     decimals = 6; // set to 6 decimal points by default
 
     // prompt for a command/expression
     printf("exp>> ");
-    fgets(line, LINE_BUFFER, stdin);
+    if (!fgets(line, LINE_BUFFER, stdin)) {
+      puts(""); // so we have a trailing newline
+      break;
+    }
     command = strip(line); // strip whitespace
 
     // convert to lowercase
@@ -126,7 +128,7 @@ int main(void) {
       display_help(); // usage info
 
     } else if (strcmp(command, "exit") == 0) {
-      running = false; // shutdown
+      break;
 
     } else if (strcmp(command, "memory") == 0) {
       // retrieve and display memory if available
