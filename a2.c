@@ -261,7 +261,7 @@ linked_list * convert_rpn(const linked_list * const token_list) {
   while (true) {
     if (current_token->t.type >= IS_OPERATOR) {
       // handle operators
-      if (current_token->t.type >= IS_UNARY && 
+      if (current_token->t.type >= IS_UNARY &&
           ((last_type > END_TERM && last_type < IS_UNARY) || first)) {
         puts("Missing number before unary operator!");
         free_linked_list(output_queue); free_linked_list(operator_stack);
@@ -321,7 +321,7 @@ linked_list * convert_rpn(const linked_list * const token_list) {
     }
 
 
-    if (current_token->next == NULL) { 
+    if (current_token->next == NULL) {
       // reached end - grab remaining operators and add to the queue
       token * t = NULL;
       t = pop_head(operator_stack);
@@ -425,12 +425,20 @@ linked_list * tokenize(char exp[], const double * const last_answer,
       default:
         if (isalpha(exp[i])) {
           // parse memory/ans/otherkeywords
-          if (strlen(&exp[i]) >= 6 && strncmp("memory", &exp[i], 6) == 0
-              && memory != NULL) {
+          if (strlen(&exp[i]) >= 6 && strncmp("memory", &exp[i], 6) == 0) {
+            if (memory == NULL) {
+              puts("No value saved to memory!");
+              free_linked_list(tokens_head);
+              return NULL;
+            }
             previous = add_token(tokens_head, (token) {LITERAL, *memory});
             i = i + 5;
-          } else if (strlen(&exp[i]) >= 3 && strncmp("ans", &exp[i], 3) == 0
-              && last_answer != NULL) {
+          } else if (strlen(&exp[i]) >= 3 && strncmp("ans", &exp[i], 3) == 0) {
+            if (last_answer == NULL) {
+              puts("No previous answer to use!");
+              free_linked_list(tokens_head);
+              return NULL;
+            }
             previous = add_token(tokens_head, (token) {LITERAL, *last_answer});
             i = i + 2;
           } else {
@@ -673,7 +681,7 @@ void free_linked_list(linked_list * thelist) {
     free(temp);
   }
 }
-      
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // SMALLER HELPER FUNCTIONS
