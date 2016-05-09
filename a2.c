@@ -18,6 +18,8 @@
 #include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
+#include <limits.h>
+
 
 // use sscanf_s as drop-in replacement for sscanf if Visual Studio compiler
 #ifdef _MSC_VER
@@ -25,7 +27,12 @@
 #endif
 
 // set line buffer
-#define LINE_BUFFER 256
+#ifndef LINE_MAX
+ #define LINE_BUFFER 2048
+#else
+ #define LINE_BUFFER LINE_MAX
+#endif
+
 
 // all possible token types for expressions (supported operators, etc.)
 // the order of things here is crafted so that the following is true:
