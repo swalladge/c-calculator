@@ -100,7 +100,7 @@ linked_list * stack_push(linked_list * tokens_head, token t);
 ////////////////////////////////////////////////////////////////////////////////
 int main(void) {
 
-  puts("Type \"help\" or enter a mathematical expression.");
+  puts("Type \"help\" or enter a mathematical expression.\n");
 
   // setup variables
   char line[LINE_BUFFER];
