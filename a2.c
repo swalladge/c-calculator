@@ -370,6 +370,7 @@ linked_list * tokenize(char exp[], const double * const last_answer,
   linked_list * tokens_head = new_linked_list();
   bool first = true; // true while at first token
   token previous = {NOTHING, 0};
+  token temp_token = {NOTHING, 0};
 
   // insert a token if there was a last answer,
   //  and the first thing is an operator.
@@ -381,7 +382,9 @@ linked_list * tokenize(char exp[], const double * const last_answer,
       case '/':
       case '^':
       case '#':
-        previous = add_token(tokens_head, (token) {LITERAL, *last_answer});
+        temp_token.type = LITERAL;
+        temp_token.value = *last_answer;
+        previous = add_token(tokens_head, temp_token);
         first = false;
         break;
     }
@@ -393,6 +396,7 @@ linked_list * tokenize(char exp[], const double * const last_answer,
 
   // loop over each character in the expression to build the list of tokens
   while (i < len) {
+    temp_token.value = 0;
     switch (exp[i]) {
       case ' ':
         break; // ignore whitespace
@@ -401,35 +405,43 @@ linked_list * tokenize(char exp[], const double * const last_answer,
       case '+':
         // uses enum ordering to match correct types
         if (!first && (previous.type < END_TERM || previous.type > IS_UNARY)) {
-          previous = add_token(tokens_head, (token) {ADD, 0});
+          temp_token.type = ADD;
+          previous = add_token(tokens_head, temp_token);
         } else {
           grab_number = true;
         }
         break;
       case '-':
         if (!first && (previous.type < END_TERM || previous.type > IS_UNARY)) {
-          previous = add_token(tokens_head, (token) {MINUS, 0});
+          temp_token.type = MINUS;
+          previous = add_token(tokens_head, temp_token);
         } else {
           grab_number = true;
         }
         break;
       case '*':
-        previous = add_token(tokens_head, (token) {MULTIPLY, 0});
+        temp_token.type = MULTIPLY;
+        previous = add_token(tokens_head, temp_token);
         break;
       case '/':
-        previous = add_token(tokens_head, (token) {DIVIDE, 0});
+        temp_token.type = DIVIDE;
+        previous = add_token(tokens_head, temp_token);
         break;
       case '^':
-        previous = add_token(tokens_head, (token) {SQR, 0});
+        temp_token.type = SQR;
+        previous = add_token(tokens_head, temp_token);
         break;
       case '#':
-        previous = add_token(tokens_head, (token) {SQRT, 0});
+        temp_token.type = SQRT;
+        previous = add_token(tokens_head, temp_token);
         break;
       case '(':
-        previous = add_token(tokens_head, (token) {LEFT_PARENS, 0});
+        temp_token.type = LEFT_PARENS;
+        previous = add_token(tokens_head, temp_token);
         break;
       case ')':
-        previous = add_token(tokens_head, (token) {RIGHT_PARENS, 0});
+        temp_token.type = RIGHT_PARENS;
+        previous = add_token(tokens_head, temp_token);
         break;
       default:
         if (isalpha(exp[i])) {
@@ -440,7 +452,9 @@ linked_list * tokenize(char exp[], const double * const last_answer,
               free_linked_list(tokens_head);
               return NULL;
             }
-            previous = add_token(tokens_head, (token) {LITERAL, *memory});
+            temp_token.type = LITERAL;
+            temp_token.value = *memory;
+            previous = add_token(tokens_head, temp_token);
             i = i + 5;
           } else if (strlen(&exp[i]) >= 3 && strncmp("ans", &exp[i], 3) == 0) {
             if (last_answer == NULL) {
@@ -448,7 +462,9 @@ linked_list * tokenize(char exp[], const double * const last_answer,
               free_linked_list(tokens_head);
               return NULL;
             }
-            previous = add_token(tokens_head, (token) {LITERAL, *last_answer});
+            temp_token.type = LITERAL;
+            temp_token.value = *last_answer;
+            previous = add_token(tokens_head, temp_token);
             i = i + 2;
           } else {
             puts("Unrecognized variable name!");
@@ -474,7 +490,9 @@ linked_list * tokenize(char exp[], const double * const last_answer,
         free_linked_list(tokens_head);
         return NULL;
       }
-      previous = add_token(tokens_head, (token) {LITERAL, value});
+      temp_token.type = LITERAL;
+      temp_token.value = value;
+      previous = add_token(tokens_head, temp_token);
       i = i + (l-1); // advance i by number of characters gobbled
     }
 
@@ -497,6 +515,7 @@ double * evaluate_rpn(const linked_list * const rpn_tokens) {
   linked_list * answer_stack = new_linked_list();
   const linked_list * current_token = rpn_tokens;
   token_type type = NOTHING;
+  token temp_token = {LITERAL, 0};
 
   // loop over each token in the list
   while (true) {
@@ -560,7 +579,8 @@ double * evaluate_rpn(const linked_list * const rpn_tokens) {
       left = NULL; right = NULL;
 
       // push the result back on the stack
-      stack_push(answer_stack, (token) {LITERAL, temp_answer});
+      temp_token.value = temp_answer;
+      stack_push(answer_stack, temp_token);
 
     } else {
       // not an operator - push to answer_stack
@@ -677,7 +697,8 @@ linked_list * new_linked_list(void) {
   linked_list * l = malloc(sizeof(linked_list));
   l->isfull = false;
   l->next = NULL;
-  l->t = (token) {NOTHING, 0};
+  l->t.type = NOTHING;
+  l->t.value = 0;
   return l;
 }
 
