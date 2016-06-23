@@ -6,7 +6,11 @@ A simple calculator in C for HIT365 Assignment 2.
 Copyright © 2016 Samuel Walladge
 
 
-Source code hosted at [https://bitbucket.org/swalladge/hit365-a2](https://bitbucket.org/swalladge/hit365-a2).
+## Background
+
+This was written as an assignment for a university subject on C programming.  The program implements a simple math
+calculator with several features as detailed below. It uses dynamic data structures, a tokenizer, the shunting yard
+algorithm to convert to RPN, and an RPN evaluator.
 
 
 ## Features
@@ -25,7 +29,8 @@ Source code hosted at [https://bitbucket.org/swalladge/hit365-a2](https://bitbuc
 ## Example Session
 
 ```
-$ ./a2.x86_64 
+$ make && ./a2.x86_64
+gcc a2.c -o a2.`uname -m` -lm
 Type "help" or enter a mathematical expression.
 
 exp>> help
